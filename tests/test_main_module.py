@@ -12,10 +12,14 @@
 # Standard library imports
 from unittest.mock import patch
 
+# Third-party imports
+import pytest
+
 
 class TestMainModule:
     """Tests for the __main__ entry point module."""
 
+    @pytest.mark.unit
     def test_main_import(self):
         """Test that the main function is properly imported in __main__."""
         with patch("ziggiz_courier_pickup_syslog.main.main") as mock_main:
@@ -27,6 +31,7 @@ class TestMainModule:
             # Check that main was not called (since __name__ != "__main__")
             mock_main.assert_not_called()
 
+    @pytest.mark.unit
     def test_main_module_structure(self):
         """Test the structure of the __main__ module."""
         # Local/package imports

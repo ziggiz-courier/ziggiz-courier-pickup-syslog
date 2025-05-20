@@ -31,6 +31,7 @@ from ziggiz_courier_pickup_syslog.main import (
 class TestMainModule:
     """Tests for the main entry point module."""
 
+    @pytest.mark.unit
     def test_setup_logging(self, caplog):
         """Test that logging is set up correctly."""
         # Test with DEBUG level
@@ -54,6 +55,7 @@ class TestMainModule:
         setup_logging("INFO")
         assert root_logger.level == logging.INFO
 
+    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_start_servers_success(self, mocker, caplog):
         """Test that start_servers initializes both UDP and TCP servers correctly."""
@@ -92,6 +94,7 @@ class TestMainModule:
         mock_create_datagram.assert_called_once()
         mock_create_server.assert_called_once()
 
+    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_start_servers_udp_failure(self, mocker, caplog):
         """Test that start_servers handles UDP server initialization failure gracefully."""
@@ -126,6 +129,7 @@ class TestMainModule:
         mock_create_datagram.assert_called_once()
         mock_create_server.assert_called_once()
 
+    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_start_servers_tcp_failure(self, mocker, caplog):
         """Test that start_servers handles TCP server initialization failure gracefully."""
@@ -163,6 +167,7 @@ class TestMainModule:
         mock_create_datagram.assert_called_once()
         mock_create_server.assert_called_once()
 
+    @pytest.mark.unit
     def test_run_server_normal(self, mocker, caplog):
         """Test the run_server function with normal execution."""
         # Capture logs
@@ -196,6 +201,7 @@ class TestMainModule:
         mock_tcp_server.close.assert_called_once()
         mock_loop.close.assert_called_once()
 
+    @pytest.mark.unit
     def test_run_server_exception(self, mocker):
         """Test handling of exceptions in run_server."""
         # Create a logger that will raise an exception when info is called
@@ -214,6 +220,7 @@ class TestMainModule:
         # Check that sys.exit was called with code 1
         mock_exit.assert_called_once_with(1)
 
+    @pytest.mark.unit
     def test_main_function(self, mocker):
         """Test the main function with mocked arguments."""
         # Mock command line arguments
@@ -236,6 +243,7 @@ class TestMainModule:
         mock_setup_logging.assert_called_once_with("DEBUG")
         mock_run_server.assert_called_once_with("127.0.0.1", 10514, 10515)
 
+    @pytest.mark.unit
     def test_main_keyboard_interrupt(self, mocker, caplog):
         """Test handling of KeyboardInterrupt in main."""
         # Capture logs
@@ -262,6 +270,7 @@ class TestMainModule:
         # Check that the keyboard interrupt was handled correctly
         assert "Server shutdown requested by user" in caplog.text
 
+    @pytest.mark.unit
     def test_main_unexpected_exception(self, mocker, caplog):
         """Test handling of unexpected exceptions in main."""
         # Capture logs
@@ -292,6 +301,7 @@ class TestMainModule:
         assert "Unexpected error" in caplog.text
         mock_exit.assert_called_once_with(1)
 
+    @pytest.mark.unit
     def test_argument_parsing(self, mocker, capsys):
         """Test command-line argument parsing."""
         # Save the original sys.argv

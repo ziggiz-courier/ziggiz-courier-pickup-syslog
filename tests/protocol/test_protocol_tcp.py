@@ -14,6 +14,9 @@ import logging
 
 from unittest.mock import MagicMock
 
+# Third-party imports
+import pytest
+
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
 
@@ -21,6 +24,8 @@ from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
 class TestSyslogTCPProtocol:
     """Tests for the SyslogTCPProtocol class."""
 
+    @pytest.mark.unit
+    @pytest.mark.unit
     def test_init(self):
         """Test initialization of the protocol."""
         protocol = SyslogTCPProtocol()
@@ -33,6 +38,7 @@ class TestSyslogTCPProtocol:
         assert protocol._read_buffer is None
         assert protocol.max_buffer_size == 65536
 
+    @pytest.mark.unit
     def test_connection_made(self, caplog):
         """Test connection_made method."""
         caplog.set_level(logging.INFO)
@@ -50,6 +56,7 @@ class TestSyslogTCPProtocol:
         assert protocol.peername == ("127.0.0.1", 54321)
         assert "TCP connection established from 127.0.0.1:54321" in caplog.text
 
+    @pytest.mark.unit
     def test_connection_made_no_peer_info(self, caplog):
         """Test connection_made method when peer info is not available."""
         caplog.set_level(logging.INFO)
@@ -66,6 +73,7 @@ class TestSyslogTCPProtocol:
         assert protocol.transport == mock_transport
         assert "TCP connection established from unknown:unknown" in caplog.text
 
+    @pytest.mark.unit
     def test_get_buffer(self):
         """Test get_buffer method."""
         protocol = SyslogTCPProtocol()
@@ -80,6 +88,7 @@ class TestSyslogTCPProtocol:
         assert len(buffer) == 65536  # Should be capped at max_buffer_size
         assert protocol._read_buffer is buffer
 
+    @pytest.mark.unit
     def test_buffer_updated_single_message(self, caplog):
         """Test buffer_updated method with a single complete message."""
         caplog.set_level(logging.INFO)
@@ -100,6 +109,7 @@ class TestSyslogTCPProtocol:
         assert "192.168.1.1:12345" in caplog.text
         assert "su root" in caplog.text
 
+    @pytest.mark.unit
     def test_buffer_updated_multiple_messages(self, caplog):
         """Test buffer_updated method with multiple messages."""
         caplog.set_level(logging.INFO)
@@ -125,6 +135,7 @@ class TestSyslogTCPProtocol:
         assert "message 2" in caplog.text
         assert "message 3" in caplog.text
 
+    @pytest.mark.unit
     def test_buffer_updated_partial_message(self, caplog):
         """Test buffer_updated method with a partial message."""
         caplog.set_level(logging.INFO)
@@ -151,6 +162,7 @@ class TestSyslogTCPProtocol:
         assert len(protocol.buffer) == 0
         assert "su root" in caplog.text
 
+    @pytest.mark.unit
     def test_buffer_updated_message_with_remainder(self, caplog):
         """Test buffer_updated method with a complete message and partial next message."""
         caplog.set_level(logging.INFO)
@@ -172,6 +184,7 @@ class TestSyslogTCPProtocol:
         assert "message 1" in caplog.text
         assert "partial" not in caplog.text
 
+    @pytest.mark.unit
     def test_eof_received_with_data(self, caplog):
         """Test eof_received method when there's data in the buffer."""
         caplog.set_level(logging.INFO)
@@ -190,6 +203,7 @@ class TestSyslogTCPProtocol:
         assert "final message" in caplog.text
         assert len(protocol.buffer) == 0
 
+    @pytest.mark.unit
     def test_eof_received_without_data(self, caplog):
         """Test eof_received method when the buffer is empty."""
         caplog.set_level(logging.DEBUG)
@@ -204,6 +218,7 @@ class TestSyslogTCPProtocol:
         assert "EOF received from 192.168.1.1:12345" in caplog.text
         assert "Final syslog message" not in caplog.text
 
+    @pytest.mark.unit
     def test_connection_lost_with_exception(self, caplog):
         """Test connection_lost method with an exception."""
         caplog.set_level(logging.WARNING)
@@ -224,6 +239,7 @@ class TestSyslogTCPProtocol:
         assert len(protocol.buffer) == 0
         assert protocol._read_buffer is None
 
+    @pytest.mark.unit
     def test_connection_lost_without_exception(self, caplog):
         """Test connection_lost method without an exception."""
         caplog.set_level(logging.INFO)

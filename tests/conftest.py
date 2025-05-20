@@ -16,6 +16,15 @@ import logging
 import pytest
 
 
+# Define test categories
+def pytest_configure(config):
+    """Configure pytest with custom markers."""
+    config.addinivalue_line("markers", "unit: mark a test as a unit test")
+    config.addinivalue_line(
+        "markers", "integration: mark a test as an integration test"
+    )
+
+
 @pytest.fixture(autouse=True)
 def reset_logging():
     """Reset logging configuration after each test."""

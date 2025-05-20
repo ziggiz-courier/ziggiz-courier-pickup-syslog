@@ -14,6 +14,9 @@ import logging
 
 from unittest.mock import MagicMock
 
+# Third-party imports
+import pytest
+
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.udp import SyslogUDPProtocol
 
@@ -21,6 +24,7 @@ from ziggiz_courier_pickup_syslog.protocol.udp import SyslogUDPProtocol
 class TestSyslogUDPProtocol:
     """Tests for the SyslogUDPProtocol class."""
 
+    @pytest.mark.unit
     def test_init(self):
         """Test initialization of the protocol."""
         protocol = SyslogUDPProtocol()
@@ -29,6 +33,7 @@ class TestSyslogUDPProtocol:
         assert protocol.logger.name == "ziggiz_courier_pickup_syslog.protocol.udp"
         assert protocol.transport is None
 
+    @pytest.mark.unit
     def test_connection_made(self, caplog):
         """Test connection_made method."""
         caplog.set_level(logging.INFO)
@@ -47,6 +52,7 @@ class TestSyslogUDPProtocol:
         assert protocol.transport == mock_transport
         assert "UDP server started on 127.0.0.1:514" in caplog.text
 
+    @pytest.mark.unit
     def test_connection_made_no_socket_info(self, caplog):
         """Test connection_made method when socket info is not available."""
         caplog.set_level(logging.INFO)
@@ -63,6 +69,7 @@ class TestSyslogUDPProtocol:
         assert protocol.transport == mock_transport
         assert "UDP server started" in caplog.text
 
+    @pytest.mark.unit
     def test_datagram_received(self, caplog):
         """Test datagram_received method."""
         caplog.set_level(logging.INFO)
@@ -77,6 +84,7 @@ class TestSyslogUDPProtocol:
         assert "192.168.1.1:54321" in caplog.text
         assert "su root" in caplog.text
 
+    @pytest.mark.unit
     def test_error_received(self, caplog):
         """Test error_received method."""
         caplog.set_level(logging.ERROR)
