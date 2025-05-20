@@ -1,0 +1,144 @@
+# -*- coding: utf-8 -*-
+
+# SPDX-License-Identifier: BSL-1.1
+# Copyright (c) 2025 Ziggiz Inc.
+#
+# This file is part of the ziggiz-courier-core-data-processing and is licensed under the
+# Business Source License 1.1. You may not use this file except in
+# compliance with the License. You may obtain a copy of the License at:
+# https://github.com/ziggiz-courier/ziggiz-courier-core-data-processing/blob/main/LICENSE
+# Configuration module for loading and parsing configuration files
+
+# Standard library imports
+import logging
+
+from pathlib import Path
+from typing import List, Optional, Union
+
+# Third-party imports
+import yaml
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class LoggerConfig(BaseModel):
+    """Configuration for individual loggers."""
+
+    name: str
+    level: str = "INFO"
+    propagate: bool = True
+
+
+class Config(BaseModel):
+    """Main configuration class for the Ziggiz Courier Pickup Syslog server."""
+
+    # Server configuration
+    host: str = "::"  # IPv6 for dual-stack support
+    protocol: str = "tcp"  # "tcp" or "udp"
+    port: int = 514
+
+    # Logging configuration
+    log_level: str = "INFO"
+    log_format: str = "%(asctime)s %(levelname)s %(name)s %(message)s"
+    log_date_format: str = "%Y-%m-%d %H:%M:%S"
+    loggers: List[LoggerConfig] = Field(default_factory=list)
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        """Validate that the log level is a valid Python logging level."""
+        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        v = v.upper()
+        if v not in valid_levels:
+            raise ValueError(f"Invalid log level: {v}. Must be one of {valid_levels}")
+        return v
+
+    @field_validator("protocol")
+    @classmethod
+    def validate_protocol(cls, v: str) -> str:
+        """Validate that the protocol is either TCP or UDP."""
+        valid_protocols = ["tcp", "udp"]
+        v = v.lower()
+        if v not in valid_protocols:
+            raise ValueError(f"Invalid protocol: {v}. Must be one of {valid_protocols}")
+        return v
+
+
+def load_config(config_path: Optional[Union[str, Path]] = None) -> Config:
+    """
+    Load configuration from a YAML file.
+
+    Args:
+        config_path: Path to the configuration file. If None, will look for config.yaml
+                   in the current directory and default directories.
+
+    Returns:
+        A Config object containing the loaded configuration.
+
+    Raises:
+        FileNotFoundError: If the configuration file cannot be found.
+        yaml.YAMLError: If the configuration file contains invalid YAML.
+    """
+    # Default search paths
+    search_paths = [
+        Path.cwd() / "config.yaml",
+        Path.cwd() / "config.yml",
+        Path("/etc/ziggiz-courier-pickup-syslog/config.yaml"),
+        Path("/etc/ziggiz-courier-pickup-syslog/config.yml"),
+    ]
+
+    # If config path is provided, try that first
+    if config_path:
+        config_file = Path(config_path)
+        if not config_file.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_file}")
+    else:
+        # Try default paths
+        for path in search_paths:
+            if path.exists():
+                config_file = path
+                break
+        else:
+            # No config file found, return default configuration
+            logging.warning("No configuration file found, using default configuration")
+            return Config()
+
+    # Load YAML configuration
+    with open(config_file, "r") as f:
+        try:
+            config_data = yaml.safe_load(f)
+            return Config(**config_data)
+        except yaml.YAMLError as e:
+            logging.error(f"Error parsing configuration file: {e}")
+            raise
+        except Exception as e:
+            logging.error(f"Error loading configuration: {e}")
+            raise
+
+
+def configure_logging(config: Config) -> None:
+    """
+    Configure logging based on the provided configuration.
+
+    Args:
+        config: The loaded configuration object.
+    """
+    # Reset logging configuration
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
+    # Configure root logger
+    level = getattr(logging, config.log_level, logging.INFO)
+    formatter = logging.Formatter(config.log_format, datefmt=config.log_date_format)
+
+    # Add console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logging.root.setLevel(level)
+    logging.root.addHandler(console_handler)
+
+    # Configure additional loggers from config
+    for logger_config in config.loggers:
+        logger = logging.getLogger(logger_config.name)
+        logger.setLevel(getattr(logging, logger_config.level, logging.INFO))
+        logger.propagate = logger_config.propagate

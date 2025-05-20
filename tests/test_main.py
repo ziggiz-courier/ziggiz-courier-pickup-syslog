@@ -24,7 +24,7 @@ from ziggiz_courier_pickup_syslog.main import (
     main,
     run_server,
     setup_logging,
-    start_servers,
+    start_server,
 )
 
 
@@ -57,8 +57,36 @@ class TestMainModule:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_start_servers_success(self, mocker, caplog):
-        """Test that start_servers initializes both UDP and TCP servers correctly."""
+    async def test_start_server_success_tcp(self, mocker, caplog):
+        """Test that start_server initializes TCP server correctly."""
+        # Capture logs
+        caplog.set_level(logging.INFO)
+
+        # Mock the TCP server
+        mock_tcp_server = MagicMock()
+        mock_create_server = AsyncMock(return_value=mock_tcp_server)
+
+        # Apply the mocks to asyncio
+        mock_loop = MagicMock()
+        mock_loop.create_server = mock_create_server
+
+        # Execute the function
+        result = await start_server("127.0.0.1", 10514, "tcp", loop=mock_loop)
+
+        # Verify results
+        assert result[0] is None
+        assert result[1] is None
+        assert result[2] == mock_tcp_server
+
+        # Check log messages
+        assert "TCP server listening on 127.0.0.1:10514" in caplog.text
+
+        # Verify mocks were called correctly
+        mock_create_server.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_start_server_success_udp(self, mocker, caplog):
+        """Test that start_server initializes UDP server correctly."""
         # Capture logs
         caplog.set_level(logging.INFO)
 
@@ -69,90 +97,12 @@ class TestMainModule:
             return_value=(mock_udp_transport, mock_udp_protocol)
         )
 
-        # Mock the TCP server
-        mock_tcp_server = MagicMock()
-        mock_create_server = AsyncMock(return_value=mock_tcp_server)
-
         # Apply the mocks to asyncio
         mock_loop = MagicMock()
         mock_loop.create_datagram_endpoint = mock_create_datagram
-        mock_loop.create_server = mock_create_server
 
         # Execute the function
-        result = await start_servers("127.0.0.1", 10514, 10515, loop=mock_loop)
-
-        # Verify results
-        assert result[0] == mock_udp_transport
-        assert result[1] == mock_udp_protocol
-        assert result[2] == mock_tcp_server
-
-        # Check log messages
-        assert "UDP server listening on 127.0.0.1:10514" in caplog.text
-        assert "TCP server listening on 127.0.0.1:10515" in caplog.text
-
-        # Verify mocks were called correctly
-        mock_create_datagram.assert_called_once()
-        mock_create_server.assert_called_once()
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_start_servers_udp_failure(self, mocker, caplog):
-        """Test that start_servers handles UDP server initialization failure gracefully."""
-        # Capture logs
-        caplog.set_level(logging.ERROR)
-
-        # Mock the UDP datagram_endpoint to fail
-        mock_create_datagram = AsyncMock(side_effect=OSError("Address already in use"))
-
-        # Mock the TCP server to succeed
-        mock_tcp_server = MagicMock()
-        mock_create_server = AsyncMock(return_value=mock_tcp_server)
-
-        # Apply the mocks to asyncio
-        mock_loop = MagicMock()
-        mock_loop.create_datagram_endpoint = mock_create_datagram
-        mock_loop.create_server = mock_create_server
-
-        # Execute the function
-        result = await start_servers("127.0.0.1", 10514, 10515, loop=mock_loop)
-
-        # Verify results
-        assert result[0] is None
-        assert result[1] is None
-        assert result[2] == mock_tcp_server
-
-        # Check log messages
-        assert "Failed to start UDP server" in caplog.text
-        assert "Address already in use" in caplog.text
-
-        # Verify mocks were called correctly
-        mock_create_datagram.assert_called_once()
-        mock_create_server.assert_called_once()
-
-    @pytest.mark.unit
-    @pytest.mark.asyncio
-    async def test_start_servers_tcp_failure(self, mocker, caplog):
-        """Test that start_servers handles TCP server initialization failure gracefully."""
-        # Capture logs
-        caplog.set_level(logging.ERROR)
-
-        # Mock the UDP datagram_endpoint to succeed
-        mock_udp_transport = MagicMock()
-        mock_udp_protocol = MagicMock()
-        mock_create_datagram = AsyncMock(
-            return_value=(mock_udp_transport, mock_udp_protocol)
-        )
-
-        # Mock the TCP server to fail
-        mock_create_server = AsyncMock(side_effect=OSError("Address already in use"))
-
-        # Apply the mocks to asyncio
-        mock_loop = MagicMock()
-        mock_loop.create_datagram_endpoint = mock_create_datagram
-        mock_loop.create_server = mock_create_server
-
-        # Execute the function
-        result = await start_servers("127.0.0.1", 10514, 10515, loop=mock_loop)
+        result = await start_server("127.0.0.1", 10514, "udp", loop=mock_loop)
 
         # Verify results
         assert result[0] == mock_udp_transport
@@ -160,45 +110,129 @@ class TestMainModule:
         assert result[2] is None
 
         # Check log messages
-        assert "Failed to start TCP server" in caplog.text
+        assert "UDP server listening on 127.0.0.1:10514" in caplog.text
+
+        # Verify mocks were called correctly
+        mock_create_datagram.assert_called_once()
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_start_server_udp_failure(self, mocker, caplog):
+        """Test that start_server handles UDP server initialization failure gracefully."""
+        # Capture logs
+        caplog.set_level(logging.ERROR)
+
+        # Mock the UDP datagram_endpoint to fail
+        mock_create_datagram = AsyncMock(side_effect=OSError("Address already in use"))
+
+        # Apply the mocks to asyncio
+        mock_loop = MagicMock()
+        mock_loop.create_datagram_endpoint = mock_create_datagram
+
+        # Execute the function
+        result = await start_server("127.0.0.1", 10514, "udp", loop=mock_loop)
+
+        # Verify results
+        assert result[0] is None
+        assert result[1] is None
+        assert result[2] is None
+
+        # Check log messages
+        assert "Failed to start UDP server" in caplog.text
         assert "Address already in use" in caplog.text
 
         # Verify mocks were called correctly
         mock_create_datagram.assert_called_once()
-        mock_create_server.assert_called_once()
 
     @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_start_server_tcp_failure(self, mocker, caplog):
+        """Test that start_server handles TCP server initialization failure gracefully."""
+        # Capture logs
+        caplog.set_level(logging.ERROR)
+
+        # Mock the TCP server to fail
+        mock_create_server = AsyncMock(side_effect=OSError("Address already in use"))
+
+        # Apply the mocks to asyncio
+        mock_loop = MagicMock()
+        mock_loop.create_server = mock_create_server
+
+        # Execute the function
+        result = await start_server("127.0.0.1", 10514, "tcp", loop=mock_loop)
+
+        # Verify results
+        assert result[0] is None
+        assert result[1] is None
+        assert result[2] is None
+
+        # Check log messages
+        assert "Failed to start TCP server" in caplog.text
+        assert "Address already in use" in caplog.text
+
+        # Verify mocks were called correctly
+        mock_create_server.assert_called_once()
+
     def test_run_server_normal(self, mocker, caplog):
         """Test the run_server function with normal execution."""
         # Capture logs
         caplog.set_level(logging.INFO)
 
+        # Mock start_server function to not be a coroutine
+        mocker.patch("ziggiz_courier_pickup_syslog.main.start_server")
+
         # Mock asyncio.get_event_loop
         mock_loop = MagicMock()
         mocker.patch("asyncio.get_event_loop", return_value=mock_loop)
 
-        # Mock start_servers result
-        mock_udp_transport = MagicMock()
-        mock_udp_protocol = MagicMock()
+        # Test TCP protocol
+        # Mock start_server result for TCP
         mock_tcp_server = MagicMock()
-        mock_start_result = (mock_udp_transport, mock_udp_protocol, mock_tcp_server)
-        mock_loop.run_until_complete.return_value = mock_start_result
+        mock_start_result_tcp = (None, None, mock_tcp_server)
+        # We'll just mock run_until_complete to return the result directly
+        mock_loop.run_until_complete.return_value = mock_start_result_tcp
 
         # Mock KeyboardInterrupt when run_forever is called
         mock_loop.run_forever.side_effect = KeyboardInterrupt()
 
-        # Run the function
-        run_server("127.0.0.1", 10514, 10515)
+        # Run the function with TCP
+        run_server("127.0.0.1", 10514, "tcp")
 
-        # Check log messages
+        # Check log messages for TCP
         assert "Starting syslog server on 127.0.0.1" in caplog.text
-        assert "UDP port 10514" in caplog.text
-        assert "TCP port 10515" in caplog.text
+        assert "TCP" in caplog.text
+        assert "port 10514" in caplog.text
         assert "Received keyboard interrupt" in caplog.text
 
-        # Verify cleanup happened correctly
-        mock_udp_transport.close.assert_called_once()
+        # Verify cleanup happened correctly for TCP
         mock_tcp_server.close.assert_called_once()
+        mock_loop.close.assert_called_once()
+
+        # Reset mocks for UDP test
+        mock_loop.reset_mock()
+        mock_tcp_server.reset_mock()
+        caplog.clear()
+
+        # Mock start_server result for UDP
+        mock_udp_transport = MagicMock()
+        mock_udp_protocol = MagicMock()
+        mock_start_result_udp = (mock_udp_transport, mock_udp_protocol, None)
+        mock_loop.run_until_complete.return_value = mock_start_result_udp
+
+        # Mock KeyboardInterrupt when run_forever is called
+        mock_loop.run_forever.side_effect = KeyboardInterrupt()
+
+        # Run the function with UDP
+        run_server("127.0.0.1", 10514, "udp")
+
+        # Check log messages for UDP
+        assert "Starting syslog server on 127.0.0.1" in caplog.text
+        assert "UDP" in caplog.text
+        assert "port 10514" in caplog.text
+        assert "Received keyboard interrupt" in caplog.text
+
+        # Verify cleanup happened correctly for UDP
+        mock_udp_transport.close.assert_called_once()
         mock_loop.close.assert_called_once()
 
     @pytest.mark.unit
@@ -223,10 +257,20 @@ class TestMainModule:
     @pytest.mark.unit
     def test_main_function(self, mocker):
         """Test the main function with mocked arguments."""
+        # Mock the load_config function to return a config object
+        mock_config = mocker.MagicMock()
+        mock_config.host = "127.0.0.1"
+        mock_config.port = 10514
+        mock_config.protocol = "tcp"
+        mock_config.log_level = "DEBUG"
+        mocker.patch(
+            "ziggiz_courier_pickup_syslog.main.load_config", return_value=mock_config
+        )
+
         # Mock command line arguments
         mock_parser = mocker.patch("argparse.ArgumentParser")
         mock_args = Namespace(
-            log_level="DEBUG", host="127.0.0.1", udp_port=10514, tcp_port=10515
+            config=None, log_level="DEBUG", host="127.0.0.1", port=10514, protocol="tcp"
         )
         mock_parser.return_value.parse_args.return_value = mock_args
 
@@ -240,8 +284,8 @@ class TestMainModule:
         main()
 
         # Check that functions were called correctly
-        mock_setup_logging.assert_called_once_with("DEBUG")
-        mock_run_server.assert_called_once_with("127.0.0.1", 10514, 10515)
+        mock_setup_logging.assert_called_once_with(config=mock_config)
+        mock_run_server.assert_called_once_with("127.0.0.1", 10514, "tcp", mock_config)
 
     @pytest.mark.unit
     def test_main_keyboard_interrupt(self, mocker, caplog):
@@ -249,9 +293,19 @@ class TestMainModule:
         # Capture logs
         caplog.set_level(logging.INFO)
 
+        # Mock the load_config function to return a config object
+        mock_config = mocker.MagicMock()
+        mock_config.host = "::"
+        mock_config.port = 514
+        mock_config.protocol = "tcp"
+        mock_config.log_level = "INFO"
+        mocker.patch(
+            "ziggiz_courier_pickup_syslog.main.load_config", return_value=mock_config
+        )
+
         # Mock command line arguments
         mock_args = Namespace(
-            log_level="INFO", host="0.0.0.0", udp_port=514, tcp_port=514
+            config=None, log_level="INFO", host="::", port=514, protocol="tcp"
         )
         mocker.patch("argparse.ArgumentParser.parse_args", return_value=mock_args)
 
@@ -276,9 +330,19 @@ class TestMainModule:
         # Capture logs
         caplog.set_level(logging.ERROR)
 
+        # Mock the load_config function to return a config object
+        mock_config = mocker.MagicMock()
+        mock_config.host = "::"
+        mock_config.port = 514
+        mock_config.protocol = "tcp"
+        mock_config.log_level = "INFO"
+        mocker.patch(
+            "ziggiz_courier_pickup_syslog.main.load_config", return_value=mock_config
+        )
+
         # Mock command line arguments
         mock_args = Namespace(
-            log_level="INFO", host="0.0.0.0", udp_port=514, tcp_port=514
+            config=None, log_level="INFO", host="::", port=514, protocol="tcp"
         )
         mocker.patch("argparse.ArgumentParser.parse_args", return_value=mock_args)
 
@@ -314,33 +378,33 @@ class TestMainModule:
                 {
                     "args": ["ziggiz-syslog"],
                     "expected_log_level": "INFO",
-                    "expected_host": "0.0.0.0",
-                    "expected_udp_port": 514,
-                    "expected_tcp_port": 514,
+                    "expected_host": "::",  # Updated to use IPv6 for dual-stack support
+                    "expected_port": 514,
+                    "expected_protocol": "tcp",
                 },
                 # Custom log level
                 {
                     "args": ["ziggiz-syslog", "--log-level", "DEBUG"],
                     "expected_log_level": "DEBUG",
-                    "expected_host": "0.0.0.0",
-                    "expected_udp_port": 514,
-                    "expected_tcp_port": 514,
+                    "expected_host": "::",
+                    "expected_port": 514,
+                    "expected_protocol": "tcp",
                 },
-                # Custom host and ports
+                # Custom host and port
                 {
                     "args": [
                         "ziggiz-syslog",
                         "--host",
                         "127.0.0.1",
-                        "--udp-port",
+                        "--port",
                         "10514",
-                        "--tcp-port",
-                        "10515",
+                        "--protocol",
+                        "udp",
                     ],
                     "expected_log_level": "INFO",
                     "expected_host": "127.0.0.1",
-                    "expected_udp_port": 10514,
-                    "expected_tcp_port": 10515,
+                    "expected_port": 10514,
+                    "expected_protocol": "udp",
                 },
                 # Mix of custom settings
                 {
@@ -350,13 +414,13 @@ class TestMainModule:
                         "WARNING",
                         "--host",
                         "192.168.1.10",
-                        "--tcp-port",
-                        "1514",
+                        "--protocol",
+                        "tcp",
                     ],
                     "expected_log_level": "WARNING",
                     "expected_host": "192.168.1.10",
-                    "expected_udp_port": 514,
-                    "expected_tcp_port": 1514,
+                    "expected_port": 514,
+                    "expected_protocol": "tcp",
                 },
             ]
 
@@ -366,6 +430,11 @@ class TestMainModule:
             )
             mock_run_server = mocker.patch(
                 "ziggiz_courier_pickup_syslog.main.run_server"
+            )  # Create a mock config for each test case
+            mock_config = mocker.MagicMock()
+            mocker.patch(
+                "ziggiz_courier_pickup_syslog.main.load_config",
+                return_value=mock_config,
             )
 
             # Test each case
@@ -373,15 +442,46 @@ class TestMainModule:
                 # Set the command-line arguments
                 sys.argv = case["args"]
 
+                # Reset the mock attributes for the new case
+                mock_config.host = "::"  # Default values
+                mock_config.port = 514
+                mock_config.protocol = "tcp"
+                mock_config.log_level = "INFO"
+
+                # Add config attribute to command line args
+                mock_args = Namespace(
+                    config=None,
+                    log_level=(
+                        case["expected_log_level"]
+                        if "--log-level" in case["args"]
+                        else None
+                    ),
+                    host=case["expected_host"] if "--host" in case["args"] else None,
+                    port=case["expected_port"] if "--port" in case["args"] else None,
+                    protocol=(
+                        case["expected_protocol"]
+                        if "--protocol" in case["args"]
+                        else None
+                    ),
+                )
+                mock_parser = mocker.patch("argparse.ArgumentParser")
+                mock_parser.return_value.parse_args.return_value = mock_args
+
                 # Run the main function
                 main()
 
                 # Check that functions were called with the expected arguments
-                mock_setup_logging.assert_called_with(case["expected_log_level"])
-                mock_run_server.assert_called_once_with(
+                # Note: setup_logging is now called with a config object
+                assert mock_config.log_level == case["expected_log_level"]
+                assert mock_config.host == case["expected_host"]
+                assert mock_config.port == case["expected_port"]
+                assert mock_config.protocol == case["expected_protocol"]
+
+                mock_run_server.assert_called_with(
                     case["expected_host"],
-                    case["expected_udp_port"],
-                    case["expected_tcp_port"],
+                    case["expected_port"],
+                    case["expected_protocol"],
+                    mock_config,
                 )
 
                 # Reset the mocks for the next test case
