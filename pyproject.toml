@@ -1,10 +1,11 @@
 [tool.poetry]
 name = "ziggiz-courier-pickup-syslog"
 version = "0.1.0"
-description = ""
+description = "Syslog server for Ziggiz Courier pickup events"
 authors = ["Your Name <you@example.com>"]
 license = "BSL-1.0"
 readme = "README.md"
+packages = [{include = "ziggiz_courier_pickup_syslog"}]
 
 
 [tool.poetry.dependencies]
@@ -16,6 +17,9 @@ pydantic = "^2.6.1"
 ziggiz-courier-handler-core = {git = "https://github.com/ziggiz-courier/ziggiz-courier-handler-core.git", rev = "v0.1.0"}
 aiokafka = "^0.10.0"
 toml = "^0.10.2"
+
+[tool.poetry.scripts]
+ziggiz-syslog = "ziggiz_courier_pickup_syslog.main:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
