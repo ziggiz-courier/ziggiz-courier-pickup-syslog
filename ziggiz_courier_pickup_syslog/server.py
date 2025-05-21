@@ -131,8 +131,18 @@ class SyslogServer:
             Exception: If the server cannot be started
         """
         try:
-            server = await self.loop.create_server(SyslogTCPProtocol, host, port)
-            self.logger.info(f"TCP server listening on {host}:{port}")
+            # Create a factory function to pass configuration options to the protocol
+            def protocol_factory():
+                return SyslogTCPProtocol(
+                    framing_mode=self.config.framing_mode,
+                    end_of_message_marker=self.config.end_of_message_marker,
+                    max_message_length=self.config.max_message_length,
+                )
+
+            server = await self.loop.create_server(protocol_factory, host, port)
+            self.logger.info(
+                f"TCP server listening on {host}:{port} with framing mode: {self.config.framing_mode}"
+            )
             return server
         except Exception as e:
             self.logger.error(f"Failed to start TCP server: {e}")
@@ -161,8 +171,18 @@ class SyslogServer:
             if socket_dir and not os.path.exists(socket_dir):
                 os.makedirs(socket_dir, exist_ok=True)
 
-            server = await self.loop.create_unix_server(SyslogUnixProtocol, socket_path)
-            self.logger.info(f"Unix Stream server listening on {socket_path}")
+            # Create a factory function to pass configuration options to the protocol
+            def protocol_factory():
+                return SyslogUnixProtocol(
+                    framing_mode=self.config.framing_mode,
+                    end_of_message_marker=self.config.end_of_message_marker,
+                    max_message_length=self.config.max_message_length,
+                )
+
+            server = await self.loop.create_unix_server(protocol_factory, socket_path)
+            self.logger.info(
+                f"Unix Stream server listening on {socket_path} with framing mode: {self.config.framing_mode}"
+            )
             return server
         except Exception as e:
             self.logger.error(f"Failed to start Unix Stream server: {e}")

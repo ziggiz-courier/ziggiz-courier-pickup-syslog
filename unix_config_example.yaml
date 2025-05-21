@@ -4,6 +4,11 @@
 protocol: "unix"  # Using unix protocol
 unix_socket_path: "/var/run/ziggiz-syslog.sock"  # Path for Unix socket
 
+# Framing configuration
+framing_mode: "transparent"  # auto, transparent, or non_transparent
+end_of_message_marker: "\\n"  # End of message marker for non-transparent framing
+max_message_length: 16384  # Maximum message length in bytes for non-transparent framing
+
 # Logging configuration
 log_level: "INFO"
 log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"

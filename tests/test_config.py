@@ -39,6 +39,10 @@ class TestConfig:
         assert config.port == 514
         assert config.log_level == "INFO"
         assert config.loggers == []
+        # Check framing defaults
+        assert config.framing_mode == "auto"
+        assert config.end_of_message_marker == "\\n"
+        assert config.max_message_length == 16 * 1024
 
     @pytest.mark.unit
     def test_logger_config(self):
@@ -81,6 +85,26 @@ class TestConfig:
             Config(protocol="invalid_protocol")
 
     @pytest.mark.unit
+    def test_validate_framing_mode_valid(self):
+        """Test validation of valid framing mode values."""
+        config = Config(framing_mode="auto")  # default value
+        assert config.framing_mode == "auto"
+
+        config = Config(
+            framing_mode="TRANSPARENT"
+        )  # uppercase should be converted to lowercase
+        assert config.framing_mode == "transparent"
+
+        config = Config(framing_mode="non_transparent")
+        assert config.framing_mode == "non_transparent"
+
+    @pytest.mark.unit
+    def test_validate_framing_mode_invalid(self):
+        """Test validation of invalid framing mode values."""
+        with pytest.raises(ValueError):
+            Config(framing_mode="invalid_mode")
+
+    @pytest.mark.unit
     @patch(
         "builtins.open",
         new_callable=mock_open,
@@ -89,6 +113,9 @@ host: "127.0.0.1"
 protocol: "udp"
 port: 1514
 log_level: "DEBUG"
+framing_mode: "transparent"
+end_of_message_marker: "\\r\\n"
+max_message_length: 8192
 loggers:
   - name: "test.logger"
     level: "DEBUG"

@@ -7,13 +7,21 @@
 # Business Source License 1.1. You may not use this file except in
 # compliance with the License. You may obtain a copy of the License at:
 # https://github.com/ziggiz-courier/ziggiz-courier-core-data-processing/blob/main/LICENSE
-# TCP Protocol implementation for syslog server
+# TCP Protocol implementation for syslog server with fixed framing
 
 # Standard library imports
 import asyncio
 import logging
 
 from typing import Optional
+
+# Local/package imports
+# Local imports
+from ziggiz_courier_pickup_syslog.protocol.framing import (
+    FramingDetectionError,
+    FramingHelper,
+    FramingMode,
+)
 
 
 class SyslogTCPProtocol(asyncio.BufferedProtocol):
@@ -25,13 +33,44 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
     buffer operations to minimize data copying.
     """
 
-    def __init__(self):
-        """Initialize the TCP protocol."""
+    def __init__(
+        self,
+        framing_mode: str = "auto",
+        end_of_message_marker: str = "\\n",
+        max_message_length: int = 16 * 1024,
+    ):
+        """
+        Initialize the TCP protocol.
+
+        Args:
+            framing_mode: The framing mode to use ("auto", "transparent", or "non_transparent")
+            end_of_message_marker: The marker indicating end of message for non-transparent framing
+            max_message_length: Maximum message length for non-transparent framing
+        """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tcp")
         self.transport = None
         self.peername = None
-        # This buffer is used to accumulate message parts across callbacks
-        self.buffer = bytearray()
+
+        # Create the framing helper
+        try:
+            # Convert string framing mode to enum
+            framing_enum = FramingMode(framing_mode)
+            # Parse the end of message marker
+            end_marker_bytes = FramingHelper.parse_end_of_msg_marker(
+                end_of_message_marker
+            )
+
+            self.framing_helper = FramingHelper(
+                framing_mode=framing_enum,
+                end_of_msg_marker=end_marker_bytes,
+                max_msg_length=max_message_length,
+                logger=self.logger,
+            )
+        except (ValueError, FramingDetectionError) as e:
+            self.logger.error(f"Error setting up framing: {e}")
+            # Fall back to default settings
+            self.framing_helper = FramingHelper(logger=self.logger)
+
         # This is the buffer provided by the transport for reading incoming data
         self._read_buffer = None
         # Maximum size to allocate for the incoming buffer
@@ -74,25 +113,36 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         host, port = self.peername if self.peername else ("unknown", "unknown")
         self.logger.debug(f"Received {nbytes} bytes of TCP data from {host}:{port}")
 
-        # Add the received data to our message accumulation buffer
+        # Add the received data to the framing helper
         data = self._read_buffer[:nbytes]
-        self.buffer.extend(data)
+        try:
+            # Add data to the helper and extract messages
+            self.framing_helper.add_data(data)
 
-        # Try to extract complete messages
-        # The simplest approach is to split on newline characters
-        # which is common in syslog messages
-        if b"\n" in self.buffer:
-            # Split the buffer on newline
-            messages = self.buffer.split(b"\n")
+            # For transparent mode, log buffer state for debugging
+            if self.framing_helper.framing_mode == FramingMode.TRANSPARENT or (
+                self.framing_helper.framing_mode == FramingMode.AUTO
+                and self.framing_helper._detected_mode == FramingMode.TRANSPARENT
+            ):
+                self.logger.debug(
+                    f"Buffer size after adding data: {self.framing_helper.buffer_size} bytes"
+                )
 
-            # Keep the last incomplete message (if any) in the buffer
-            self.buffer = bytearray(messages.pop() if messages[-1] else b"")
+            # Extract all complete messages that can be processed
+            messages = self.framing_helper.extract_messages()
 
             # Process complete messages
             for msg in messages:
                 if msg:  # Skip empty messages
                     message = msg.decode("utf-8", errors="replace")
                     self.logger.info(f"Syslog message from {host}:{port}: {message}")
+        except FramingDetectionError as e:
+            self.logger.error(f"Framing error from {host}:{port}: {e}")
+            # If in transparent mode and detection fails, close the connection
+            if self.framing_helper.framing_mode == FramingMode.TRANSPARENT:
+                self.logger.warning("Closing connection due to framing error")
+                if self.transport:
+                    self.transport.close()
 
     def eof_received(self) -> bool:
         """
@@ -104,11 +154,26 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         host, port = self.peername if self.peername else ("unknown", "unknown")
         self.logger.debug(f"EOF received from {host}:{port}")
 
-        # If there's any data left in the buffer, process it as a final message
-        if self.buffer:
-            message = self.buffer.decode("utf-8", errors="replace")
-            self.logger.info(f"Final syslog message from {host}:{port}: {message}")
-            self.buffer.clear()
+        # Extract and process any final messages
+        try:
+            # Get any remaining messages from the framing helper buffer
+            messages = self.framing_helper.extract_messages()
+
+            # Process complete messages
+            for msg in messages:
+                if msg:  # Skip empty messages
+                    message = msg.decode("utf-8", errors="replace")
+                    self.logger.info(
+                        f"Final syslog message from {host}:{port}: {message}"
+                    )
+
+            # Check if there's still data in the buffer that couldn't be parsed
+            if self.framing_helper.buffer_size > 0:
+                self.logger.warning(
+                    f"Discarding {self.framing_helper.buffer_size} bytes of unparsed data from {host}:{port}"
+                )
+        except Exception as e:
+            self.logger.error(f"Error processing final data from {host}:{port}: {e}")
 
         # Return False to close the transport
         return False
@@ -130,7 +195,13 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         else:
             self.logger.info(f"TCP connection from {host}:{port} closed")
 
-        # Clear the buffers
-        self.buffer.clear()
+        # Reset the framing helper and clear buffers
+        self.framing_helper.reset()
         self._read_buffer = None
         self.transport = None
+
+    # Add an alias for the buffer property to support legacy tests
+    @property
+    def buffer(self):
+        """Compatibility property for accessing the framing helper's buffer."""
+        return self.framing_helper._buffer

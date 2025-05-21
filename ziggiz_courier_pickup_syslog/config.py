@@ -40,6 +40,15 @@ class Config(BaseModel):
         None  # Path for Unix socket when protocol is "unix"
     )
 
+    # Framing configuration
+    framing_mode: str = "auto"  # "auto", "transparent", or "non_transparent"
+    end_of_message_marker: str = (
+        "\\n"  # End of message marker for non-transparent framing
+    )
+    max_message_length: int = (
+        16 * 1024
+    )  # Maximum message length in bytes for non-transparent framing
+
     # Logging configuration
     log_level: str = "INFO"
     log_format: str = "%(asctime)s %(levelname)s %(name)s %(message)s"
@@ -64,6 +73,16 @@ class Config(BaseModel):
         v = v.lower()
         if v not in valid_protocols:
             raise ValueError(f"Invalid protocol: {v}. Must be one of {valid_protocols}")
+        return v
+
+    @field_validator("framing_mode")
+    @classmethod
+    def validate_framing_mode(cls, v: str) -> str:
+        """Validate that the framing mode is valid."""
+        valid_modes = ["auto", "transparent", "non_transparent"]
+        v = v.lower()
+        if v not in valid_modes:
+            raise ValueError(f"Invalid framing mode: {v}. Must be one of {valid_modes}")
         return v
 
 
