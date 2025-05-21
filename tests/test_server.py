@@ -37,6 +37,7 @@ class TestSyslogServer:
         assert server.udp_transport is None
         assert server.udp_protocol is None
         assert server.tcp_server is None
+        assert server.unix_server is None
 
         # Test with custom config
         config = Config(host="127.0.0.1", port=1514, protocol="udp")
@@ -89,6 +90,28 @@ class TestSyslogServer:
         args, kwargs = mock_loop.create_datagram_endpoint.call_args
         assert kwargs["local_addr"] == ("127.0.0.1", 1514)
 
+    async def test_start_unix_server(self):
+        """Test starting a Unix server."""
+        config = Config(protocol="unix", unix_socket_path="/tmp/test-socket.sock")
+        server = SyslogServer(config)
+
+        # Create a mock event loop and server
+        mock_loop = AsyncMock()
+        mock_server = AsyncMock()
+        mock_loop.create_unix_server.return_value = mock_server
+
+        # Start the server
+        server.loop = mock_loop
+        result = await server.start_unix_server("/tmp/test-socket.sock")
+
+        # Verify the result
+        assert result == mock_server
+        mock_loop.create_unix_server.assert_called_once()
+        # Check that create_unix_server was called with the correct protocol factory
+        # and socket path arguments
+        call_args = mock_loop.create_unix_server.call_args
+        assert call_args[0][1] == "/tmp/test-socket.sock"  # socket path
+
     async def test_start_with_tcp(self):
         """Test starting the server with TCP protocol."""
         config = Config(host="127.0.0.1", port=1514, protocol="tcp")
@@ -128,11 +151,40 @@ class TestSyslogServer:
         assert server.udp_protocol == mock_protocol
         assert server.tcp_server is None
 
+    async def test_start_with_unix(self):
+        """Test starting the server with Unix protocol."""
+        socket_path = "/tmp/test-syslog.sock"
+        config = Config(protocol="unix", unix_socket_path=socket_path)
+        server = SyslogServer(config)
+
+        # Mock the Unix server method
+        mock_unix_server = AsyncMock()
+        server.start_unix_server = AsyncMock(return_value=mock_unix_server)
+
+        # Start the server
+        await server.start()
+
+        # Verify the Unix server was started
+        server.start_unix_server.assert_called_once_with(socket_path)
+        assert server.unix_server == mock_unix_server
+        assert server.udp_transport is None
+        assert server.udp_protocol is None
+        assert server.tcp_server is None
+
     async def test_start_invalid_protocol(self):
         """Test starting the server with an invalid protocol."""
         config = Config(host="127.0.0.1", port=1514)
         # Override the protocol validation to allow an invalid value
         config.protocol = "invalid"
+        server = SyslogServer(config)
+
+        # Start the server and expect an error
+        with pytest.raises(RuntimeError):
+            await server.start()
+
+    async def test_start_unix_missing_path(self):
+        """Test starting the server with Unix protocol but missing socket path."""
+        config = Config(protocol="unix", unix_socket_path=None)
         server = SyslogServer(config)
 
         # Start the server and expect an error
@@ -172,6 +224,31 @@ class TestSyslogServer:
         assert server.udp_transport is None
         assert server.udp_protocol is None
         assert "Stopping syslog server" in caplog.text
+
+    async def test_stop_unix(self, caplog):
+        """Test stopping a Unix server."""
+        caplog.set_level(logging.INFO)
+        server = SyslogServer()
+        # Create test socket path and config
+        socket_path = "/tmp/test-syslog.sock"
+        server.config = Config(protocol="unix", unix_socket_path=socket_path)
+        # Use a mock server with proper async methods
+        mock_server = MagicMock()
+        mock_server.wait_closed = AsyncMock()
+        server.unix_server = mock_server
+
+        # Create test socket file
+        with patch("os.path.exists") as mock_exists, patch("os.unlink") as mock_unlink:
+            mock_exists.return_value = True
+            # Stop the server
+            await server.stop()
+            # Verify the server was closed
+            mock_server.close.assert_called_once()
+            mock_server.wait_closed.assert_called_once()
+            assert server.unix_server is None
+            # Verify socket file was removed
+            mock_unlink.assert_called_once_with(socket_path)
+            assert "Stopping syslog server" in caplog.text
 
     @patch("asyncio.sleep")
     async def test_run_forever(self, mock_sleep):

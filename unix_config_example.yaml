@@ -1,20 +1,18 @@
-# Ziggiz Courier Pickup Syslog Server Configuration
+# Ziggiz Courier Pickup Syslog Server Configuration with Unix Protocol
 
 # Server configuration
-host: "::"
-protocol: "udp"  # tcp, udp, or unix
-port: 1514  # Using a non-privileged port for testing
-unix_socket_path: "/tmp/ziggiz-syslog.sock"  # Path for Unix socket when protocol is "unix"
+protocol: "unix"  # Using unix protocol
+unix_socket_path: "/var/run/ziggiz-syslog.sock"  # Path for Unix socket
 
 # Logging configuration
-log_level: "DEBUG"
+log_level: "INFO"
 log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"
 log_date_format: "%Y-%m-%d %H:%M:%S"
 
 # Optional logger configurations
 loggers:
   - name: "ziggiz_courier_pickup_syslog"
-    level: "DEBUG"
+    level: "INFO"
     propagate: true
   - name: "asyncio"
     level: "WARNING"

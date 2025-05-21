@@ -12,6 +12,7 @@
 # Standard library imports
 import asyncio
 import logging
+import os
 
 from typing import Optional, Tuple
 
@@ -20,6 +21,7 @@ from typing import Optional, Tuple
 from ziggiz_courier_pickup_syslog.config import Config
 from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
 from ziggiz_courier_pickup_syslog.protocol.udp import SyslogUDPProtocol
+from ziggiz_courier_pickup_syslog.protocol.unix import SyslogUnixProtocol
 
 
 class SyslogServer:
@@ -42,6 +44,7 @@ class SyslogServer:
         self.udp_transport = None
         self.udp_protocol = None
         self.tcp_server = None
+        self.unix_server = None
 
     async def start(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         """
@@ -71,6 +74,16 @@ class SyslogServer:
                 )
             elif protocol == "tcp":
                 self.tcp_server = await self.start_tcp_server(host, port)
+            elif protocol == "unix":
+                unix_socket_path = self.config.unix_socket_path
+                if not unix_socket_path:
+                    raise ValueError(
+                        "Unix socket path must be provided for Unix protocol"
+                    )
+                self.unix_server = await self.start_unix_server(unix_socket_path)
+                self.logger.info(
+                    f"Starting syslog server with UNIX protocol on {unix_socket_path}"
+                )
             else:
                 raise ValueError(f"Invalid protocol specified: {protocol}")
         except Exception as e:
@@ -125,6 +138,36 @@ class SyslogServer:
             self.logger.error(f"Failed to start TCP server: {e}")
             raise
 
+    async def start_unix_server(self, socket_path: str) -> asyncio.AbstractServer:
+        """
+        Start a Unix Stream syslog server.
+
+        Args:
+            socket_path: The path to the Unix domain socket
+
+        Returns:
+            The server object
+
+        Raises:
+            Exception: If the server cannot be started
+        """
+        try:
+            # Remove the socket file if it already exists
+            if os.path.exists(socket_path):
+                os.unlink(socket_path)
+
+            # Create the directory for the socket if it doesn't exist
+            socket_dir = os.path.dirname(socket_path)
+            if socket_dir and not os.path.exists(socket_dir):
+                os.makedirs(socket_dir, exist_ok=True)
+
+            server = await self.loop.create_unix_server(SyslogUnixProtocol, socket_path)
+            self.logger.info(f"Unix Stream server listening on {socket_path}")
+            return server
+        except Exception as e:
+            self.logger.error(f"Failed to start Unix Stream server: {e}")
+            raise
+
     async def stop(self) -> None:
         """
         Stop the syslog server.
@@ -147,6 +190,24 @@ class SyslogServer:
             await self.tcp_server.wait_closed()
             self.tcp_server = None
 
+        # Clean up Unix resources
+        if self.unix_server:
+            self.logger.debug("Closing Unix Stream server")
+            # Server's close method is synchronous, no need to await it
+            self.unix_server.close()
+            # But wait_closed is a coroutine that needs to be awaited
+            await self.unix_server.wait_closed()
+            self.unix_server = None
+
+            # Remove the Unix socket file if it exists
+            socket_path = self.config.unix_socket_path
+            if socket_path and os.path.exists(socket_path):
+                try:
+                    os.unlink(socket_path)
+                    self.logger.debug(f"Removed Unix socket file: {socket_path}")
+                except OSError as e:
+                    self.logger.warning(f"Error removing Unix socket file: {e}")
+
     async def run_forever(self) -> None:
         """
         Run the server until interrupted.
@@ -167,6 +228,6 @@ class SyslogServer:
         """
         Clean up resources when the object is garbage collected.
         """
-        if self.udp_transport or self.tcp_server:
+        if self.udp_transport or self.tcp_server or self.unix_server:
             self.logger.warning("Server resources not properly cleaned up.")
             # We can't run async code in __del__, so just log a warning

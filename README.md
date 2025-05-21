@@ -1,6 +1,6 @@
 # Ziggiz Courier Pickup Syslog
 
-A syslog server for Ziggiz Courier pickup events that receives syslog messages over UDP and TCP protocols.
+A syslog server for Ziggiz Courier pickup events that receives syslog messages over UDP, TCP, and Unix Stream protocols.
 
 ## Installation
 
@@ -13,7 +13,7 @@ pip install ziggiz-courier-pickup-syslog
 ### Command Line
 
 ```bash
-ziggiz-syslog [--config CONFIG_FILE] [--host HOST] [--udp-port PORT] [--tcp-port PORT] [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
+ziggiz-syslog [--config CONFIG_FILE] [--host HOST] [--protocol {tcp,udp,unix}] [--port PORT] [--unix-socket-path PATH] [--log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}]
 ```
 
 ### Configuration
@@ -31,9 +31,10 @@ You can also specify a configuration file with the `--config` option.
 
 ```yaml
 # Server configuration
-host: "0.0.0.0"      # Host address to bind to
-udp_port: 514        # UDP port to listen on
-tcp_port: 514        # TCP port to listen on
+host: "0.0.0.0"      # Host address to bind to (for TCP/UDP)
+protocol: "tcp"      # Protocol to use: "tcp", "udp", or "unix"
+port: 514            # TCP or UDP port to listen on (when using TCP/UDP protocols)
+unix_socket_path: "/var/run/ziggiz-syslog.sock"  # Path for Unix socket (when using unix protocol)
 
 # Logging configuration
 log_level: "INFO"    # Root logger level: DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -59,12 +60,26 @@ decoders:
       parse_structured_data: true
 ```
 
+#### Unix Socket Example Configuration
+
+```yaml
+# Server configuration using Unix Socket
+protocol: "unix"     # Use Unix Socket protocol
+unix_socket_path: "/var/run/ziggiz-syslog.sock"  # Path for Unix socket
+
+# Logging configuration
+log_level: "INFO"
+log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"
+log_date_format: "%Y-%m-%d %H:%M:%S"
+```
+
 ### Command Line Arguments
 
 Command line arguments override the corresponding settings in the configuration file.
 
 - `--config`: Path to the configuration file
 - `--host`: Host address to bind to
-- `--udp-port`: UDP port to listen on
-- `--tcp-port`: TCP port to listen on
+- `--protocol`: Protocol to use (tcp, udp, unix)
+- `--port`: TCP or UDP port to listen on
+- `--unix-socket-path`: Path for Unix domain socket
 - `--log-level`: Logging level

@@ -34,8 +34,11 @@ class Config(BaseModel):
 
     # Server configuration
     host: str = "::"  # IPv6 for dual-stack support
-    protocol: str = "tcp"  # "tcp" or "udp"
+    protocol: str = "tcp"  # "tcp", "udp", or "unix"
     port: int = 514
+    unix_socket_path: Optional[str] = (
+        None  # Path for Unix socket when protocol is "unix"
+    )
 
     # Logging configuration
     log_level: str = "INFO"
@@ -56,8 +59,8 @@ class Config(BaseModel):
     @field_validator("protocol")
     @classmethod
     def validate_protocol(cls, v: str) -> str:
-        """Validate that the protocol is either TCP or UDP."""
-        valid_protocols = ["tcp", "udp"]
+        """Validate that the protocol is either TCP, UDP, or Unix."""
+        valid_protocols = ["tcp", "udp", "unix"]
         v = v.lower()
         if v not in valid_protocols:
             raise ValueError(f"Invalid protocol: {v}. Must be one of {valid_protocols}")
