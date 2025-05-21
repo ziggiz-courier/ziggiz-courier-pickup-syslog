@@ -43,10 +43,12 @@ class TestProtocolFramingIntegration:
             framing_mode="transparent",
             end_of_message_marker="\\r\\n",
             max_message_length=8192,
+            decoder_type="rfc5424",
         )
         assert tcp_protocol.framing_helper.framing_mode == FramingMode.TRANSPARENT
         assert tcp_protocol.framing_helper.end_of_msg_marker == b"\r\n"
         assert tcp_protocol.framing_helper.max_msg_length == 8192
+        assert tcp_protocol.decoder_type == "rfc5424"
 
     def test_unix_protocol_initialization_with_framing(self):
         """Test that Unix protocol initializes framing helper correctly."""
@@ -61,10 +63,12 @@ class TestProtocolFramingIntegration:
             framing_mode="non_transparent",
             end_of_message_marker="\\0",
             max_message_length=4096,
+            decoder_type="rfc3164",
         )
         assert unix_protocol.framing_helper.framing_mode == FramingMode.NON_TRANSPARENT
         assert unix_protocol.framing_helper.end_of_msg_marker == b"\0"
         assert unix_protocol.framing_helper.max_msg_length == 4096
+        assert unix_protocol.decoder_type == "rfc3164"
 
     def test_tcp_protocol_message_processing(self):
         """Test that TCP protocol processes messages correctly."""
@@ -109,6 +113,7 @@ class TestProtocolFramingIntegration:
             framing_mode="transparent",
             end_of_message_marker="\\r\\n",
             max_message_length=4096,
+            decoder_type="rfc5424",
         )
 
         server = SyslogServer(config=config)
@@ -131,6 +136,7 @@ class TestProtocolFramingIntegration:
         assert tcp_protocol.framing_helper.framing_mode == FramingMode.TRANSPARENT
         assert tcp_protocol.framing_helper.end_of_msg_marker == b"\r\n"
         assert tcp_protocol.framing_helper.max_msg_length == 4096
+        assert tcp_protocol.decoder_type == "rfc5424"
 
         # Test Unix server
         mock_loop.reset_mock()
@@ -153,3 +159,4 @@ class TestProtocolFramingIntegration:
         assert unix_protocol.framing_helper.framing_mode == FramingMode.TRANSPARENT
         assert unix_protocol.framing_helper.end_of_msg_marker == b"\r\n"
         assert unix_protocol.framing_helper.max_msg_length == 4096
+        assert unix_protocol.decoder_type == "rfc5424"

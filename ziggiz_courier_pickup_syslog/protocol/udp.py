@@ -15,6 +15,9 @@ import logging
 
 from typing import Optional, Tuple
 
+# Local/package imports
+from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
+
 
 class SyslogUDPProtocol(asyncio.DatagramProtocol):
     """
@@ -24,10 +27,20 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
     and handling UDP syslog messages.
     """
 
-    def __init__(self):
-        """Initialize the UDP protocol."""
+    def __init__(self, decoder_type: str = "auto"):
+        """
+        Initialize the UDP protocol.
+
+        Args:
+            decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
+        """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.udp")
         self.transport = None
+        self.decoder_type = decoder_type
+
+        # Connection-specific caches for the decoder
+        self.connection_cache = {}
+        self.event_parsing_cache = {}
 
     def connection_made(self, transport) -> None:
         """
@@ -62,9 +75,31 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         host, port = addr
         self.logger.debug(f"Received UDP datagram from {host}:{port}")
 
-        # Just log the data without parsing
+        # Decode the data
         message = data.decode("utf-8", errors="replace")
-        self.logger.info(f"Syslog message from {host}:{port}: {message}")
+
+        # Try to use the decoder if ziggiz_courier_handler_core is available
+        try:
+            decoded_message = DecoderFactory.decode_message(
+                self.decoder_type,
+                message,
+                connection_cache=self.connection_cache,
+                event_parsing_cache=self.event_parsing_cache,
+            )
+            # Log the decoded message with its type
+            msg_type = type(decoded_message).__name__
+            self.logger.info(
+                f"Syslog message ({msg_type}) from {host}:{port}: {message}"
+            )
+        except ImportError:
+            # If decoder is not available, just log the raw message
+            self.logger.info(f"Syslog message from {host}:{port}: {message}")
+        except Exception as e:
+            # Log any parsing errors but don't fail
+            self.logger.warning(
+                f"Failed to parse syslog message from {host}:{port}: {e}"
+            )
+            self.logger.info(f"Raw syslog message from {host}:{port}: {message}")
 
     def error_received(self, exc: Exception) -> None:
         """

@@ -2,8 +2,17 @@
 
 # Server configuration
 host: "::"           # IPv6 address to bind to (for dual stack support)
-protocol: "tcp"      # Protocol to use: "tcp" or "udp"
+protocol: "tcp"      # Protocol to use: "tcp", "udp", or "unix"
 port: 514            # Port to listen on
+# unix_socket_path: "/var/run/ziggiz-syslog.sock"  # Path for Unix socket when protocol is "unix"
+
+# Framing configuration
+framing_mode: "auto" # Message framing mode: "auto", "transparent", or "non_transparent"
+end_of_message_marker: "\\n"  # End of message marker for non-transparent framing
+max_message_length: 16384  # Maximum message length in bytes for non-transparent framing
+
+# Decoder configuration
+decoder_type: "auto"  # Syslog decoder type: "auto", "rfc3164", "rfc5424", or "base"
 
 # Logging configuration
 log_level: "INFO"    # Root logger level: DEBUG, INFO, WARNING, ERROR, CRITICAL

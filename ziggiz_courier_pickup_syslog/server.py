@@ -107,8 +107,14 @@ class SyslogServer:
             Exception: If the server cannot be started
         """
         try:
+            # Create a factory function to pass configuration options to the protocol
+            def protocol_factory():
+                return SyslogUDPProtocol(
+                    decoder_type=self.config.decoder_type,
+                )
+
             transport, protocol = await self.loop.create_datagram_endpoint(
-                SyslogUDPProtocol, local_addr=(host, port)
+                protocol_factory, local_addr=(host, port)
             )
             self.logger.info(f"UDP server listening on {host}:{port}")
             return transport, protocol
@@ -137,6 +143,7 @@ class SyslogServer:
                     framing_mode=self.config.framing_mode,
                     end_of_message_marker=self.config.end_of_message_marker,
                     max_message_length=self.config.max_message_length,
+                    decoder_type=self.config.decoder_type,
                 )
 
             server = await self.loop.create_server(protocol_factory, host, port)
@@ -177,6 +184,7 @@ class SyslogServer:
                     framing_mode=self.config.framing_mode,
                     end_of_message_marker=self.config.end_of_message_marker,
                     max_message_length=self.config.max_message_length,
+                    decoder_type=self.config.decoder_type,
                 )
 
             server = await self.loop.create_unix_server(protocol_factory, socket_path)

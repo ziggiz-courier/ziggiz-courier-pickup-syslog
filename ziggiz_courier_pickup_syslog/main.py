@@ -141,8 +141,35 @@ def main() -> None:
     parser.add_argument(
         "--protocol",
         type=str,
-        choices=["tcp", "udp"],
-        help="Protocol to use (tcp or udp, overrides config file)",
+        choices=["tcp", "udp", "unix"],
+        help="Protocol to use (tcp, udp, or unix, overrides config file)",
+    )
+    parser.add_argument(
+        "--unix-socket-path",
+        type=str,
+        help="Path for Unix domain socket (when protocol is unix, overrides config file)",
+    )
+    parser.add_argument(
+        "--framing-mode",
+        type=str,
+        choices=["auto", "transparent", "non_transparent"],
+        help="Framing mode (auto, transparent, or non_transparent, overrides config file)",
+    )
+    parser.add_argument(
+        "--end-of-message-marker",
+        type=str,
+        help="End of message marker for non-transparent framing (overrides config file)",
+    )
+    parser.add_argument(
+        "--max-message-length",
+        type=int,
+        help="Maximum message length in bytes for non-transparent framing (overrides config file)",
+    )
+    parser.add_argument(
+        "--decoder-type",
+        type=str,
+        choices=["auto", "rfc3164", "rfc5424", "base"],
+        help="Syslog decoder type (auto, rfc3164, rfc5424, or base, overrides config file)",
     )
 
     args = parser.parse_args()
@@ -160,6 +187,16 @@ def main() -> None:
             config.port = args.port
         if args.protocol:
             config.protocol = args.protocol
+        if args.unix_socket_path:
+            config.unix_socket_path = args.unix_socket_path
+        if args.framing_mode:
+            config.framing_mode = args.framing_mode
+        if args.end_of_message_marker:
+            config.end_of_message_marker = args.end_of_message_marker
+        if args.max_message_length:
+            config.max_message_length = args.max_message_length
+        if args.decoder_type:
+            config.decoder_type = args.decoder_type
 
         # Setup logging based on configuration
         setup_logging(config=config)

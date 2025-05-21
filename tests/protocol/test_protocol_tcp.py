@@ -33,6 +33,10 @@ class TestSyslogTCPProtocol:
         assert protocol.max_buffer_size == 65536
         # Check that framing_helper is initialized
         assert hasattr(protocol, "framing_helper")
+        # Check decoder setup
+        assert protocol.decoder_type == "auto"
+        assert isinstance(protocol.connection_cache, dict)
+        assert isinstance(protocol.event_parsing_cache, dict)
 
     def test_buffer_property(self):
         """Test the buffer property compatibility."""

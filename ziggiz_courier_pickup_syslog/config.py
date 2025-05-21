@@ -49,6 +49,9 @@ class Config(BaseModel):
         16 * 1024
     )  # Maximum message length in bytes for non-transparent framing
 
+    # Syslog decoder configuration
+    decoder_type: str = "auto"  # "auto", "rfc3164", "rfc5424", or "base"
+
     # Logging configuration
     log_level: str = "INFO"
     log_format: str = "%(asctime)s %(levelname)s %(name)s %(message)s"
@@ -83,6 +86,16 @@ class Config(BaseModel):
         v = v.lower()
         if v not in valid_modes:
             raise ValueError(f"Invalid framing mode: {v}. Must be one of {valid_modes}")
+        return v
+
+    @field_validator("decoder_type")
+    @classmethod
+    def validate_decoder_type(cls, v: str) -> str:
+        """Validate that the decoder type is valid."""
+        valid_types = ["auto", "rfc3164", "rfc5424", "base"]
+        v = v.lower()
+        if v not in valid_types:
+            raise ValueError(f"Invalid decoder type: {v}. Must be one of {valid_types}")
         return v
 
 

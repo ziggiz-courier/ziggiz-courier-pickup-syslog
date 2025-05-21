@@ -9,6 +9,9 @@ framing_mode: "transparent"  # auto, transparent, or non_transparent
 end_of_message_marker: "\\n"  # End of message marker for non-transparent framing
 max_message_length: 16384  # Maximum message length in bytes for non-transparent framing
 
+# Decoder configuration
+decoder_type: "rfc5424"  # Syslog decoder type: "auto", "rfc3164", "rfc5424", or "base"
+
 # Logging configuration
 log_level: "INFO"
 log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"

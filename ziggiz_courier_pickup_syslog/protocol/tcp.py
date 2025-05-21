@@ -16,6 +16,8 @@ import logging
 from typing import Optional
 
 # Local/package imports
+from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
+
 # Local imports
 from ziggiz_courier_pickup_syslog.protocol.framing import (
     FramingDetectionError,
@@ -38,6 +40,7 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         framing_mode: str = "auto",
         end_of_message_marker: str = "\\n",
         max_message_length: int = 16 * 1024,
+        decoder_type: str = "auto",
     ):
         """
         Initialize the TCP protocol.
@@ -46,10 +49,16 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             framing_mode: The framing mode to use ("auto", "transparent", or "non_transparent")
             end_of_message_marker: The marker indicating end of message for non-transparent framing
             max_message_length: Maximum message length for non-transparent framing
+            decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tcp")
         self.transport = None
         self.peername = None
+        self.decoder_type = decoder_type
+
+        # Connection-specific caches for the decoder
+        self.connection_cache = {}
+        self.event_parsing_cache = {}
 
         # Create the framing helper
         try:
@@ -135,7 +144,33 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             for msg in messages:
                 if msg:  # Skip empty messages
                     message = msg.decode("utf-8", errors="replace")
-                    self.logger.info(f"Syslog message from {host}:{port}: {message}")
+
+                    # Try to use the decoder if ziggiz_courier_handler_core is available
+                    try:
+                        decoded_message = DecoderFactory.decode_message(
+                            self.decoder_type,
+                            message,
+                            connection_cache=self.connection_cache,
+                            event_parsing_cache=self.event_parsing_cache,
+                        )
+                        # Log the decoded message with its type
+                        msg_type = type(decoded_message).__name__
+                        self.logger.info(
+                            f"Syslog message ({msg_type}) from {host}:{port}: {message}"
+                        )
+                    except ImportError:
+                        # If decoder is not available, just log the raw message
+                        self.logger.info(
+                            f"Syslog message from {host}:{port}: {message}"
+                        )
+                    except Exception as e:
+                        # Log any parsing errors but don't fail
+                        self.logger.warning(
+                            f"Failed to parse syslog message from {host}:{port}: {e}"
+                        )
+                        self.logger.info(
+                            f"Raw syslog message from {host}:{port}: {message}"
+                        )
         except FramingDetectionError as e:
             self.logger.error(f"Framing error from {host}:{port}: {e}")
             # If in transparent mode and detection fails, close the connection
@@ -163,9 +198,33 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             for msg in messages:
                 if msg:  # Skip empty messages
                     message = msg.decode("utf-8", errors="replace")
-                    self.logger.info(
-                        f"Final syslog message from {host}:{port}: {message}"
-                    )
+
+                    # Try to use the decoder if ziggiz_courier_handler_core is available
+                    try:
+                        decoded_message = DecoderFactory.decode_message(
+                            self.decoder_type,
+                            message,
+                            connection_cache=self.connection_cache,
+                            event_parsing_cache=self.event_parsing_cache,
+                        )
+                        # Log the decoded message with its type
+                        msg_type = type(decoded_message).__name__
+                        self.logger.info(
+                            f"Final syslog message ({msg_type}) from {host}:{port}: {message}"
+                        )
+                    except ImportError:
+                        # If decoder is not available, just log the raw message
+                        self.logger.info(
+                            f"Final syslog message from {host}:{port}: {message}"
+                        )
+                    except Exception as e:
+                        # Log any parsing errors but don't fail
+                        self.logger.warning(
+                            f"Failed to parse final syslog message from {host}:{port}: {e}"
+                        )
+                        self.logger.info(
+                            f"Raw final syslog message from {host}:{port}: {message}"
+                        )
 
             # Check if there's still data in the buffer that couldn't be parsed
             if self.framing_helper.buffer_size > 0:

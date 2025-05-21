@@ -337,7 +337,16 @@ class TestMainModule:
         # Mock command line arguments
         mock_parser = mocker.patch("argparse.ArgumentParser")
         mock_args = Namespace(
-            config=None, log_level="DEBUG", host="127.0.0.1", port=10514, protocol="tcp"
+            config=None,
+            log_level="DEBUG",
+            host="127.0.0.1",
+            port=10514,
+            protocol="tcp",
+            unix_socket_path=None,
+            framing_mode=None,
+            end_of_message_marker=None,
+            max_message_length=None,
+            decoder_type=None,
         )
         mock_parser.return_value.parse_args.return_value = mock_args
 
@@ -372,7 +381,16 @@ class TestMainModule:
 
         # Mock command line arguments
         mock_args = Namespace(
-            config=None, log_level="INFO", host="::", port=514, protocol="tcp"
+            config=None,
+            log_level="INFO",
+            host="::",
+            port=514,
+            protocol="tcp",
+            unix_socket_path=None,
+            framing_mode=None,
+            end_of_message_marker=None,
+            max_message_length=None,
+            decoder_type=None,
         )
         mocker.patch("argparse.ArgumentParser.parse_args", return_value=mock_args)
 
@@ -530,6 +548,11 @@ class TestMainModule:
                         if "--protocol" in case["args"]
                         else None
                     ),
+                    unix_socket_path=None,
+                    framing_mode=None,
+                    end_of_message_marker=None,
+                    max_message_length=None,
+                    decoder_type=None,
                 )
                 mock_parser = mocker.patch("argparse.ArgumentParser")
                 mock_parser.return_value.parse_args.return_value = mock_args

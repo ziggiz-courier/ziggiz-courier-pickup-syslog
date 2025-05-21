@@ -41,6 +41,9 @@ framing_mode: "auto"  # Message framing mode: "auto", "transparent", or "non_tra
 end_of_message_marker: "\\n"  # End of message marker for non-transparent framing (supports escape sequences)
 max_message_length: 16384     # Maximum message length in bytes for non-transparent framing
 
+# Decoder configuration
+decoder_type: "auto"  # Syslog decoder type: "auto", "rfc3164", "rfc5424", or "base"
+
 # Logging configuration
 log_level: "INFO"    # Root logger level: DEBUG, INFO, WARNING, ERROR, CRITICAL
 log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"
@@ -88,6 +91,46 @@ The server supports different framing modes for TCP and Unix Stream protocols:
 
 The `end_of_message_marker` supports common escaped sequences like `\\n` (newline), `\\r\\n` (carriage return + newline), `\\0` (null), as well as hex codes like `\\x00`.
 
+### Syslog Decoders
+
+The server supports different decoder types for parsing syslog messages. Each decoder is optimized for specific syslog message formats:
+
+- **auto**: Uses the `UnknownSyslogDecoder` that automatically tries all available decoder formats to parse messages. This is the default and most flexible option, but less efficient as it may need to try multiple formats for each message.
+- **rfc3164**: Uses the `SyslogRFC3164Decoder` specifically for RFC 3164 formatted syslog messages (BSD syslog format). Example: `<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8`
+- **rfc5424**: Uses the `SyslogRFC5424Decoder` specifically for RFC 5424 formatted syslog messages (newer, structured format). Example: `<165>1 2003-08-24T05:14:15.000003-07:00 192.0.2.1 myproc 8710 - - %% It's time to make the do-nuts.`
+- **base**: Uses the `SyslogRFCBaseDecoder` for basic syslog parsing with minimal format validation.
+
+#### Performance Considerations
+
+- For high volume environments with known message formats, specify the exact decoder type for better performance.
+- The "auto" option is convenient but consumes more CPU cycles as it tries multiple parsers.
+- For mixed message environments where you can't predict the format, "auto" is still the best choice.
+
+#### Thread Safety
+
+Decoders are instantiated per-connection to ensure thread safety, as they maintain connection-specific caches. This ensures that:
+
+- Each TCP connection gets its own decoder instance
+- Each UDP client (identified by source address) gets its own decoder instance
+- Each Unix socket connection gets its own decoder instance
+
+#### Configuration Examples
+
+For RFC 3164 (BSD) formatted messages:
+```yaml
+decoder_type: "rfc3164"
+```
+
+For RFC 5424 (modern) formatted messages:
+```yaml
+decoder_type: "rfc5424"
+```
+
+For mixed environments:
+```yaml
+decoder_type: "auto"  # Default
+```
+
 ### Command Line Arguments
 
 Command line arguments override the corresponding settings in the configuration file.
@@ -100,4 +143,5 @@ Command line arguments override the corresponding settings in the configuration 
 - `--framing-mode`: Framing mode (auto, transparent, non_transparent)
 - `--end-of-message-marker`: End of message marker for non-transparent framing
 - `--max-message-length`: Maximum message length in bytes for non-transparent framing
+- `--decoder-type`: Syslog decoder type (auto, rfc3164, rfc5424, base)
 - `--log-level`: Logging level
