@@ -36,10 +36,12 @@ class TestRealWorldFraming:
         helper.reset()
 
         # Larger message with content (correcting the octet count to the actual byte count)
-        helper.add_data(b"27 <134>1 2003-10-11T22:14:15Z")
+        # Using a complete RFC5424 formatted message
+        rfc5424_msg = b"<134>1 2003-10-11T22:14:15Z mymachine su 123 ID47 [test@32473 iut=\"3\"] 'su root' failed"
+        helper.add_data(f"{len(rfc5424_msg)} ".encode() + rfc5424_msg)
         messages = helper.extract_messages()
         assert len(messages) == 1
-        assert messages[0] == b"<134>1 2003-10-11T22:14:15Z"
+        assert messages[0] == rfc5424_msg
 
         # Maximum allowed length (5 digits)
         helper.add_data(b"12345 " + b"X" * 12345)
@@ -67,6 +69,38 @@ class TestRealWorldFraming:
         assert len(messages) == 2
         assert messages[0] == b"message 1"
         assert messages[1] == b"message 2"
+
+        # Test with RFC3164 format message
+        helper.reset()
+        rfc3164_msg = b"<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8\n"
+        helper.add_data(rfc3164_msg)
+        messages = helper.extract_messages()
+        assert len(messages) == 1
+        assert messages[0] == rfc3164_msg.rstrip(b"\n")
+
+        # Test with RFC5424 format message
+        helper.reset()
+        rfc5424_msg = b"<134>1 2003-10-11T22:14:15Z mymachine su 123 ID47 [test@32473 iut=\"3\"] 'su root' failed\n"
+        helper.add_data(rfc5424_msg)
+        messages = helper.extract_messages()
+        assert len(messages) == 1
+        assert messages[0] == rfc5424_msg.rstrip(b"\n")
+
+        # Test with RFC3164 format message
+        helper.reset()
+        rfc3164_msg = b"<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8\n"
+        helper.add_data(rfc3164_msg)
+        messages = helper.extract_messages()
+        assert len(messages) == 1
+        assert messages[0] == rfc3164_msg.rstrip(b"\n")
+
+        # Test with RFC5424 format message
+        helper.reset()
+        rfc5424_msg = b"<134>1 2003-10-11T22:14:15Z mymachine su 123 ID47 [test@32473 iut=\"3\"] 'su root' failed\n"
+        helper.add_data(rfc5424_msg)
+        messages = helper.extract_messages()
+        assert len(messages) == 1
+        assert messages[0] == rfc5424_msg.rstrip(b"\n")
 
         # Test with CRLF delimiter
         helper = FramingHelper(

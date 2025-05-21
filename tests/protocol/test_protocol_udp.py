@@ -85,6 +85,22 @@ class TestSyslogUDPProtocol:
         assert "su root" in caplog.text
 
     @pytest.mark.unit
+    def test_datagram_received_rfc5424(self, caplog):
+        """Test datagram_received method with RFC5424 format message."""
+        caplog.set_level(logging.INFO)
+        protocol = SyslogUDPProtocol()
+
+        # Call datagram_received with RFC5424 format test data
+        # Format: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID STRUCTURED-DATA MSG
+        data = b'<134>1 2003-10-11T22:14:15Z mymachine su 123 ID47 [origin software="test" swVersion="1.0"] \'su root\' failed for lonvick'
+        addr = ("192.168.1.2", 54322)
+        protocol.datagram_received(data, addr)
+
+        # Check that the message is properly logged
+        assert "192.168.1.2:54322" in caplog.text
+        assert "su root" in caplog.text
+
+    @pytest.mark.unit
     def test_error_received(self, caplog):
         """Test error_received method."""
         caplog.set_level(logging.ERROR)
