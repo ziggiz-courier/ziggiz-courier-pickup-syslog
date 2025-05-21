@@ -13,6 +13,7 @@
 
 
 # Third-party imports
+import pytest
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
@@ -21,6 +22,7 @@ from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
 class TestSyslogTCPProtocol:
     """Tests for the SyslogTCPProtocol class."""
 
+    @pytest.mark.unit
     def test_init(self):
         """Test initialization of the protocol."""
         protocol = SyslogTCPProtocol()
@@ -38,6 +40,7 @@ class TestSyslogTCPProtocol:
         assert isinstance(protocol.connection_cache, dict)
         assert isinstance(protocol.event_parsing_cache, dict)
 
+    @pytest.mark.unit
     def test_buffer_property(self):
         """Test the buffer property compatibility."""
         protocol = SyslogTCPProtocol()

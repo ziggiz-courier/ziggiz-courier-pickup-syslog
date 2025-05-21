@@ -17,6 +17,7 @@ import pytest
 from ziggiz_courier_pickup_syslog.protocol.framing import FramingHelper, FramingMode
 
 
+@pytest.mark.unit
 class TestRealWorldFraming:
     """Tests for real-world framing scenarios."""
 

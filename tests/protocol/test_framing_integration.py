@@ -27,6 +27,7 @@ from ziggiz_courier_pickup_syslog.protocol.unix import SyslogUnixProtocol
 from ziggiz_courier_pickup_syslog.server import SyslogServer
 
 
+@pytest.mark.integration
 class TestProtocolFramingIntegration:
     """Tests for the integration of framing helper with protocols."""
 

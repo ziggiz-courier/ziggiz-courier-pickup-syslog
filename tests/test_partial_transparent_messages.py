@@ -19,6 +19,9 @@ import logging
 
 from unittest.mock import MagicMock
 
+# Third-party imports
+import pytest
+
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.unix import SyslogUnixProtocol
 
@@ -36,6 +39,9 @@ class MockTransport(MagicMock):
         self.closed = True
 
 
+@pytest.mark.integration
+@pytest.mark.integration
+@pytest.mark.asyncio
 async def test_partial_transparent_message_eof():
     """Test EOF handling with partial transparent messages."""
     print("\n=== Testing EOF with Partial Transparent Messages ===")

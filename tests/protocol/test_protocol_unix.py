@@ -30,6 +30,7 @@ def unix_protocol():
     return protocol
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_connection_made(unix_protocol):
     """Test that connection_made logs properly."""
@@ -43,6 +44,7 @@ async def test_connection_made(unix_protocol):
     unix_protocol.logger.info.assert_called_once()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_get_buffer(unix_protocol):
     """Test that get_buffer returns a buffer of correct size."""
@@ -56,6 +58,7 @@ async def test_get_buffer(unix_protocol):
     assert len(big_buffer) == unix_protocol.max_buffer_size
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_buffer_updated(unix_protocol):
     """Test that buffer_updated processes data correctly."""
@@ -72,6 +75,7 @@ async def test_buffer_updated(unix_protocol):
     assert unix_protocol.buffer == bytearray()
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_eof_received(unix_protocol):
     """Test that eof_received processes any remaining data."""
@@ -88,6 +92,7 @@ async def test_eof_received(unix_protocol):
     assert result is False  # Should return False to close the transport
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_connection_lost(unix_protocol):
     """Test that connection_lost cleans up resources."""

@@ -41,6 +41,7 @@ def non_transparent_helper():
     return FramingHelper(framing_mode=FramingMode.NON_TRANSPARENT)
 
 
+@pytest.mark.unit
 class TestFramingHelper:
     """Tests for the FramingHelper class."""
 

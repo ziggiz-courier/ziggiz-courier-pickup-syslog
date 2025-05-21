@@ -23,6 +23,7 @@ from ziggiz_courier_pickup_syslog.config import Config
 from ziggiz_courier_pickup_syslog.server import SyslogServer
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 class TestSyslogServer:
     """Tests for the SyslogServer class."""
