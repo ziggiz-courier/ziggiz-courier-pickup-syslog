@@ -55,55 +55,7 @@ def setup_logging(log_level: str = "INFO", config: Optional[Config] = None) -> N
         logging.getLogger("aiokafka").setLevel(logging.WARNING)
 
 
-async def start_server(host: str, port: int, protocol: str, loop=None) -> tuple:
-    """
-    Start the syslog server service with the specified protocol.
-
-    Args:
-        host: The host address to bind to
-        port: The port to listen on
-        protocol: The protocol to use ("tcp" or "udp")
-        loop: Optional event loop to use, defaults to current event loop
-
-    Returns:
-        A tuple with the server components based on protocol:
-        - For UDP: (transport, protocol_instance, None)
-        - For TCP: (None, None, server)
-    """
-    logger = logging.getLogger("ziggiz_courier_pickup_syslog.main")
-
-    # Get the event loop if not provided
-    if loop is None:
-        loop = asyncio.get_event_loop()
-
-    udp_transport, udp_protocol, tcp_server = None, None, None
-
-    if protocol.lower() == "udp":
-        # Setup UDP server
-        # Local/package imports
-        from ziggiz_courier_pickup_syslog.protocol.udp import SyslogUDPProtocol
-
-        try:
-            udp_transport, udp_protocol = await loop.create_datagram_endpoint(
-                SyslogUDPProtocol, local_addr=(host, port)
-            )
-            logger.info(f"UDP server listening on {host}:{port}")
-        except Exception as e:
-            logger.error(f"Failed to start UDP server: {e}")
-    elif protocol.lower() == "tcp":
-        # Setup TCP server
-        # Local/package imports
-        from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
-
-        try:
-            tcp_server = await loop.create_server(SyslogTCPProtocol, host, port)
-            logger.info(f"TCP server listening on {host}:{port}")
-        except Exception as e:
-            logger.error(f"Failed to start TCP server: {e}")
-    else:
-        logger.error(f"Invalid protocol specified: {protocol}")
-
-    return udp_transport, udp_protocol, tcp_server
+# Note: The start_server function has been replaced by the SyslogServer class in server.py
 
 
 def run_server(
@@ -124,30 +76,32 @@ def run_server(
     logger = logging.getLogger("ziggiz_courier_pickup_syslog.main")
 
     try:
-        logger.info(
-            f"Starting syslog server on {host} using {protocol.upper()} protocol on port {port}"
-        )
+        # Create a configuration object if not provided
+        if not config:
+            config = Config(host=host, port=port, protocol=protocol)
 
         # Create and run the event loop
         loop = asyncio.get_event_loop()
 
-        # Start the server
-        udp_transport, udp_protocol, tcp_server = loop.run_until_complete(
-            start_server(host, port, protocol)
-        )
+        # Import the SyslogServer class
+        # Local/package imports
+        from ziggiz_courier_pickup_syslog.server import SyslogServer
 
-        # Run the event loop until interrupted
+        # Create the server instance
+        server = SyslogServer(config)
+
+        # Run the server
         try:
+            # Start the server
+            loop.run_until_complete(server.start(loop))
+
+            # Run the event loop until interrupted
             loop.run_forever()
         except KeyboardInterrupt:
             logger.info("Received keyboard interrupt, shutting down...")
         finally:
-            # Clean shutdown of servers
-            if udp_transport:
-                udp_transport.close()
-            if tcp_server:
-                tcp_server.close()
-                loop.run_until_complete(tcp_server.wait_closed())
+            # Clean shutdown of server
+            loop.run_until_complete(server.stop())
 
             # Close the event loop
             loop.close()

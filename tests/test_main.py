@@ -24,8 +24,8 @@ from ziggiz_courier_pickup_syslog.main import (
     main,
     run_server,
     setup_logging,
-    start_server,
 )
+from ziggiz_courier_pickup_syslog.server import SyslogServer
 
 
 class TestMainModule:
@@ -57,129 +57,173 @@ class TestMainModule:
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_start_server_success_tcp(self, mocker, caplog):
-        """Test that start_server initializes TCP server correctly."""
+    async def test_server_start_tcp(self, mocker, caplog):
+        """Test that SyslogServer initializes TCP server correctly."""
         # Capture logs
         caplog.set_level(logging.INFO)
 
-        # Mock the TCP server
+        # Create a server instance with TCP configuration
+        config = mocker.MagicMock()
+        config.host = "127.0.0.1"
+        config.port = 10514
+        config.protocol = "tcp"
+        server = SyslogServer(config)
+
+        # Mock the TCP server creation
         mock_tcp_server = MagicMock()
         mock_create_server = AsyncMock(return_value=mock_tcp_server)
 
         # Apply the mocks to asyncio
         mock_loop = MagicMock()
         mock_loop.create_server = mock_create_server
+        server.loop = mock_loop
+
+        # Mock the start_tcp_server method
+        mocker.patch.object(
+            server, "start_tcp_server", AsyncMock(return_value=mock_tcp_server)
+        )
 
         # Execute the function
-        result = await start_server("127.0.0.1", 10514, "tcp", loop=mock_loop)
+        await server.start()
 
         # Verify results
-        assert result[0] is None
-        assert result[1] is None
-        assert result[2] == mock_tcp_server
+        assert server.tcp_server == mock_tcp_server
+        assert server.udp_transport is None
+        assert server.udp_protocol is None
 
         # Check log messages
-        assert "TCP server listening on 127.0.0.1:10514" in caplog.text
+        assert (
+            "Starting syslog server on 127.0.0.1 using TCP protocol on port 10514"
+            in caplog.text
+        )
 
         # Verify mocks were called correctly
-        mock_create_server.assert_called_once()
+        server.start_tcp_server.assert_called_once_with("127.0.0.1", 10514)
 
     @pytest.mark.asyncio
-    async def test_start_server_success_udp(self, mocker, caplog):
-        """Test that start_server initializes UDP server correctly."""
+    async def test_server_start_udp(self, mocker, caplog):
+        """Test that SyslogServer initializes UDP server correctly."""
         # Capture logs
         caplog.set_level(logging.INFO)
+
+        # Create a server instance with UDP configuration
+        config = mocker.MagicMock()
+        config.host = "127.0.0.1"
+        config.port = 10514
+        config.protocol = "udp"
+        server = SyslogServer(config)
 
         # Mock the UDP datagram_endpoint
         mock_udp_transport = MagicMock()
         mock_udp_protocol = MagicMock()
-        mock_create_datagram = AsyncMock(
-            return_value=(mock_udp_transport, mock_udp_protocol)
+        mock_create_datagram_result = (mock_udp_transport, mock_udp_protocol)
+
+        # Mock the start_udp_server method
+        mocker.patch.object(
+            server,
+            "start_udp_server",
+            AsyncMock(return_value=mock_create_datagram_result),
         )
 
         # Apply the mocks to asyncio
         mock_loop = MagicMock()
-        mock_loop.create_datagram_endpoint = mock_create_datagram
+        server.loop = mock_loop
 
         # Execute the function
-        result = await start_server("127.0.0.1", 10514, "udp", loop=mock_loop)
+        await server.start()
 
         # Verify results
-        assert result[0] == mock_udp_transport
-        assert result[1] == mock_udp_protocol
-        assert result[2] is None
+        assert server.udp_transport == mock_udp_transport
+        assert server.udp_protocol == mock_udp_protocol
+        assert server.tcp_server is None
 
         # Check log messages
-        assert "UDP server listening on 127.0.0.1:10514" in caplog.text
+        assert (
+            "Starting syslog server on 127.0.0.1 using UDP protocol on port 10514"
+            in caplog.text
+        )
 
         # Verify mocks were called correctly
-        mock_create_datagram.assert_called_once()
+        server.start_udp_server.assert_called_once_with("127.0.0.1", 10514)
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_start_server_udp_failure(self, mocker, caplog):
-        """Test that start_server handles UDP server initialization failure gracefully."""
+    async def test_server_start_udp_failure(self, mocker, caplog):
+        """Test that SyslogServer handles UDP server initialization failure gracefully."""
         # Capture logs
         caplog.set_level(logging.ERROR)
 
-        # Mock the UDP datagram_endpoint to fail
-        mock_create_datagram = AsyncMock(side_effect=OSError("Address already in use"))
+        # Create a server instance with UDP configuration
+        config = mocker.MagicMock()
+        config.host = "127.0.0.1"
+        config.port = 10514
+        config.protocol = "udp"
+        server = SyslogServer(config)
+
+        # Mock the start_udp_server method to fail
+        error = OSError("Address already in use")
+        mocker.patch.object(server, "start_udp_server", AsyncMock(side_effect=error))
 
         # Apply the mocks to asyncio
         mock_loop = MagicMock()
-        mock_loop.create_datagram_endpoint = mock_create_datagram
+        server.loop = mock_loop
 
-        # Execute the function
-        result = await start_server("127.0.0.1", 10514, "udp", loop=mock_loop)
-
-        # Verify results
-        assert result[0] is None
-        assert result[1] is None
-        assert result[2] is None
+        # Execute the function and expect it to raise an exception
+        with pytest.raises(RuntimeError) as excinfo:
+            await server.start()
 
         # Check log messages
-        assert "Failed to start UDP server" in caplog.text
-        assert "Address already in use" in caplog.text
+        assert "Failed to start syslog server" in caplog.text
+        assert "Address already in use" in str(excinfo.value)
 
         # Verify mocks were called correctly
-        mock_create_datagram.assert_called_once()
+        server.start_udp_server.assert_called_once_with("127.0.0.1", 10514)
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_start_server_tcp_failure(self, mocker, caplog):
-        """Test that start_server handles TCP server initialization failure gracefully."""
+    async def test_server_start_tcp_failure(self, mocker, caplog):
+        """Test that SyslogServer handles TCP server initialization failure gracefully."""
         # Capture logs
         caplog.set_level(logging.ERROR)
 
-        # Mock the TCP server to fail
-        mock_create_server = AsyncMock(side_effect=OSError("Address already in use"))
+        # Create a server instance with TCP configuration
+        config = mocker.MagicMock()
+        config.host = "127.0.0.1"
+        config.port = 10514
+        config.protocol = "tcp"
+        server = SyslogServer(config)
+
+        # Mock the start_tcp_server method to fail
+        error = OSError("Address already in use")
+        mocker.patch.object(server, "start_tcp_server", AsyncMock(side_effect=error))
 
         # Apply the mocks to asyncio
         mock_loop = MagicMock()
-        mock_loop.create_server = mock_create_server
+        server.loop = mock_loop
 
-        # Execute the function
-        result = await start_server("127.0.0.1", 10514, "tcp", loop=mock_loop)
-
-        # Verify results
-        assert result[0] is None
-        assert result[1] is None
-        assert result[2] is None
+        # Execute the function and expect it to raise an exception
+        with pytest.raises(RuntimeError) as excinfo:
+            await server.start()
 
         # Check log messages
-        assert "Failed to start TCP server" in caplog.text
-        assert "Address already in use" in caplog.text
+        assert "Failed to start syslog server" in caplog.text
+        assert "Address already in use" in str(excinfo.value)
 
         # Verify mocks were called correctly
-        mock_create_server.assert_called_once()
+        server.start_tcp_server.assert_called_once_with("127.0.0.1", 10514)
 
     def test_run_server_normal(self, mocker, caplog):
         """Test the run_server function with normal execution."""
         # Capture logs
         caplog.set_level(logging.INFO)
 
-        # Mock start_server function to not be a coroutine
-        mocker.patch("ziggiz_courier_pickup_syslog.main.start_server")
+        # Mock SyslogServer class
+        mock_server = mocker.MagicMock()
+        mock_server.start = mocker.AsyncMock()
+        mock_server.stop = mocker.AsyncMock()
+        mocker.patch(
+            "ziggiz_courier_pickup_syslog.main.SyslogServer", return_value=mock_server
+        )
 
         # Mock asyncio.get_event_loop
         mock_loop = MagicMock()

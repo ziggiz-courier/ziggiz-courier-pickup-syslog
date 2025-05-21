@@ -39,7 +39,14 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         self.transport = transport
         socket_info = transport.get_extra_info("socket")
         if socket_info:
-            host, port = socket_info.getsockname()
+            sockname = socket_info.getsockname()
+            # Handle both IPv4 (host, port) and IPv6 (host, port, flowinfo, scopeid)
+            if len(sockname) == 2:
+                host, port = sockname
+            elif len(sockname) == 4:  # IPv6 address
+                host, port, _, _ = sockname
+            else:
+                host, port = "unknown", "unknown"
             self.logger.info(f"UDP server started on {host}:{port}")
         else:
             self.logger.info("UDP server started")
