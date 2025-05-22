@@ -347,6 +347,13 @@ class TestMainModule:
             end_of_message_marker=None,
             max_message_length=None,
             decoder_type=None,
+            # TLS-related arguments
+            tls_certfile=None,
+            tls_keyfile=None,
+            tls_ca_certs=None,
+            tls_verify_client=False,
+            tls_min_version=None,
+            tls_ciphers=None,
         )
         mock_parser.return_value.parse_args.return_value = mock_args
 
@@ -391,6 +398,13 @@ class TestMainModule:
             end_of_message_marker=None,
             max_message_length=None,
             decoder_type=None,
+            # TLS-related arguments
+            tls_certfile=None,
+            tls_keyfile=None,
+            tls_ca_certs=None,
+            tls_verify_client=False,
+            tls_min_version=None,
+            tls_ciphers=None,
         )
         mocker.patch("argparse.ArgumentParser.parse_args", return_value=mock_args)
 
@@ -553,6 +567,13 @@ class TestMainModule:
                     end_of_message_marker=None,
                     max_message_length=None,
                     decoder_type=None,
+                    # TLS-related arguments
+                    tls_certfile=None,
+                    tls_keyfile=None,
+                    tls_ca_certs=None,
+                    tls_verify_client=False,
+                    tls_min_version=None,
+                    tls_ciphers=None,
                 )
                 mock_parser = mocker.patch("argparse.ArgumentParser")
                 mock_parser.return_value.parse_args.return_value = mock_args

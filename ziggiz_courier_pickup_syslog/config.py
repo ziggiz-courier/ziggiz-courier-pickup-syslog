@@ -34,10 +34,22 @@ class Config(BaseModel):
 
     # Server configuration
     host: str = "::"  # IPv6 for dual-stack support
-    protocol: str = "tcp"  # "tcp", "udp", or "unix"
+    protocol: str = "tcp"  # "tcp", "udp", "unix", or "tls"
     port: int = 514
     unix_socket_path: Optional[str] = (
         None  # Path for Unix socket when protocol is "unix"
+    )
+
+    # TLS configuration
+    tls_certfile: Optional[str] = None  # Path to the server certificate file
+    tls_keyfile: Optional[str] = None  # Path to the server private key file
+    tls_ca_certs: Optional[str] = (
+        None  # Path to the CA certificates file for client verification
+    )
+    tls_verify_client: bool = False  # Whether to verify client certificates
+    tls_min_version: str = "TLSv1_3"  # Minimum TLS version to accept
+    tls_ciphers: Optional[str] = (
+        None  # Optional cipher string to restrict allowed ciphers
     )
 
     # Framing configuration
@@ -71,8 +83,8 @@ class Config(BaseModel):
     @field_validator("protocol")
     @classmethod
     def validate_protocol(cls, v: str) -> str:
-        """Validate that the protocol is either TCP, UDP, or Unix."""
-        valid_protocols = ["tcp", "udp", "unix"]
+        """Validate that the protocol is either TCP, UDP, Unix, or TLS."""
+        valid_protocols = ["tcp", "udp", "unix", "tls"]
         v = v.lower()
         if v not in valid_protocols:
             raise ValueError(f"Invalid protocol: {v}. Must be one of {valid_protocols}")
@@ -97,6 +109,21 @@ class Config(BaseModel):
         if v not in valid_types:
             raise ValueError(f"Invalid decoder type: {v}. Must be one of {valid_types}")
         return v
+
+    @field_validator("tls_min_version")
+    @classmethod
+    def validate_tls_min_version(cls, v: str) -> str:
+        """Validate that the TLS version is valid."""
+        valid_versions = ["TLSv1_2", "TLSv1_3"]
+        if v.upper() not in [ver.upper() for ver in valid_versions]:
+            raise ValueError(
+                f"Invalid TLS version: {v}. Must be one of {valid_versions}"
+            )
+        # Return the original case to match the expected format
+        for ver in valid_versions:
+            if v.upper() == ver.upper():
+                return ver
+        return v  # This should never be reached
 
 
 def load_config(config_path: Optional[Union[str, Path]] = None) -> Config:

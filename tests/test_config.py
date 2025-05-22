@@ -43,6 +43,13 @@ class TestConfig:
         assert config.framing_mode == "auto"
         assert config.end_of_message_marker == "\\n"
         assert config.max_message_length == 16 * 1024
+        # Check TLS defaults
+        assert config.tls_certfile is None
+        assert config.tls_keyfile is None
+        assert config.tls_ca_certs is None
+        assert config.tls_verify_client is False
+        assert config.tls_min_version == "TLSv1_3"
+        assert config.tls_ciphers is None
 
     @pytest.mark.unit
     def test_logger_config(self):
@@ -78,6 +85,12 @@ class TestConfig:
         config = Config(protocol="UDP")  # uppercase should be converted to lowercase
         assert config.protocol == "udp"
 
+        config = Config(protocol="unix")
+        assert config.protocol == "unix"
+
+        config = Config(protocol="tls")
+        assert config.protocol == "tls"
+
     @pytest.mark.unit
     def test_validate_protocol_invalid(self):
         """Test validation of invalid protocol values."""
@@ -103,6 +116,26 @@ class TestConfig:
         """Test validation of invalid framing mode values."""
         with pytest.raises(ValueError):
             Config(framing_mode="invalid_mode")
+
+    @pytest.mark.unit
+    def test_validate_tls_min_version_valid(self):
+        """Test validation of valid TLS version values."""
+        config = Config(tls_min_version="TLSv1_3")  # default value
+        assert config.tls_min_version == "TLSv1_3"
+
+        config = Config(
+            tls_min_version="tlsv1_2"
+        )  # lowercase should be converted to uppercase
+        assert config.tls_min_version == "TLSv1_2"
+
+    @pytest.mark.unit
+    def test_validate_tls_min_version_invalid(self):
+        """Test validation of invalid TLS version values."""
+        with pytest.raises(ValueError):
+            Config(tls_min_version="TLSv1_1")
+
+        with pytest.raises(ValueError):
+            Config(tls_min_version="invalid_version")
 
     @pytest.mark.unit
     @patch(
@@ -138,6 +171,40 @@ loggers:
         assert config.loggers[0].name == "test.logger"
         assert config.loggers[0].level == "DEBUG"
         assert config.loggers[0].propagate is False
+
+    @pytest.mark.unit
+    @patch(
+        "builtins.open",
+        new_callable=mock_open,
+        read_data="""
+host: "127.0.0.1"
+protocol: "tls"
+port: 6514
+tls_certfile: "/path/to/cert.pem"
+tls_keyfile: "/path/to/key.pem"
+tls_ca_certs: "/path/to/ca.pem"
+tls_verify_client: true
+tls_min_version: "TLSv1_2"
+tls_ciphers: "HIGH:!aNULL:!MD5"
+log_level: "INFO"
+""",
+    )
+    @patch("pathlib.Path.exists")
+    def test_load_config_with_tls(self, mock_exists, mock_file):
+        """Test loading TLS configuration from a file."""
+        mock_exists.return_value = True
+
+        config = load_config("tls_config.yaml")
+
+        assert config.host == "127.0.0.1"
+        assert config.protocol == "tls"
+        assert config.port == 6514
+        assert config.tls_certfile == "/path/to/cert.pem"
+        assert config.tls_keyfile == "/path/to/key.pem"
+        assert config.tls_ca_certs == "/path/to/ca.pem"
+        assert config.tls_verify_client is True
+        assert config.tls_min_version == "TLSv1_2"
+        assert config.tls_ciphers == "HIGH:!aNULL:!MD5"
 
     @pytest.mark.unit
     @patch("builtins.open", side_effect=yaml.YAMLError("Invalid YAML"))

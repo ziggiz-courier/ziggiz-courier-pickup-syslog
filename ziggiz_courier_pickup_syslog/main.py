@@ -141,13 +141,45 @@ def main() -> None:
     parser.add_argument(
         "--protocol",
         type=str,
-        choices=["tcp", "udp", "unix"],
-        help="Protocol to use (tcp, udp, or unix, overrides config file)",
+        choices=["tcp", "udp", "unix", "tls"],
+        help="Protocol to use (tcp, udp, unix, or tls, overrides config file)",
     )
     parser.add_argument(
         "--unix-socket-path",
         type=str,
         help="Path for Unix domain socket (when protocol is unix, overrides config file)",
+    )
+    # TLS-specific arguments
+    parser.add_argument(
+        "--tls-certfile",
+        type=str,
+        help="Path to the server certificate file (when protocol is tls, overrides config file)",
+    )
+    parser.add_argument(
+        "--tls-keyfile",
+        type=str,
+        help="Path to the server private key file (when protocol is tls, overrides config file)",
+    )
+    parser.add_argument(
+        "--tls-ca-certs",
+        type=str,
+        help="Path to the CA certificates file for client verification (when protocol is tls, overrides config file)",
+    )
+    parser.add_argument(
+        "--tls-verify-client",
+        action="store_true",
+        help="Whether to verify client certificates (when protocol is tls, overrides config file)",
+    )
+    parser.add_argument(
+        "--tls-min-version",
+        type=str,
+        choices=["TLSv1_2", "TLSv1_3"],
+        help="Minimum TLS version to accept (when protocol is tls, overrides config file)",
+    )
+    parser.add_argument(
+        "--tls-ciphers",
+        type=str,
+        help="Cipher string to restrict allowed ciphers (when protocol is tls, overrides config file)",
     )
     parser.add_argument(
         "--framing-mode",
@@ -189,6 +221,18 @@ def main() -> None:
             config.protocol = args.protocol
         if args.unix_socket_path:
             config.unix_socket_path = args.unix_socket_path
+        if args.tls_certfile:
+            config.tls_certfile = args.tls_certfile
+        if args.tls_keyfile:
+            config.tls_keyfile = args.tls_keyfile
+        if args.tls_ca_certs:
+            config.tls_ca_certs = args.tls_ca_certs
+        if args.tls_verify_client:
+            config.tls_verify_client = args.tls_verify_client
+        if args.tls_min_version:
+            config.tls_min_version = args.tls_min_version
+        if args.tls_ciphers:
+            config.tls_ciphers = args.tls_ciphers
         if args.framing_mode:
             config.framing_mode = args.framing_mode
         if args.end_of_message_marker:

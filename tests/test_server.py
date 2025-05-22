@@ -12,6 +12,7 @@
 # Standard library imports
 import asyncio
 import logging
+import ssl
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -39,6 +40,8 @@ class TestSyslogServer:
         assert server.udp_protocol is None
         assert server.tcp_server is None
         assert server.unix_server is None
+        assert server.tls_server is None
+        assert server.tls_context is None
 
         # Test with custom config
         config = Config(host="127.0.0.1", port=1514, protocol="udp")
@@ -113,6 +116,57 @@ class TestSyslogServer:
         call_args = mock_loop.create_unix_server.call_args
         assert call_args[0][1] == "/tmp/test-socket.sock"  # socket path
 
+    @patch(
+        "ziggiz_courier_pickup_syslog.protocol.tls.TLSContextBuilder.create_server_context"
+    )
+    async def test_start_tls_server(self, mock_create_context):
+        """Test starting a TLS server."""
+        # Create a configuration with TLS settings
+        config = Config(
+            host="127.0.0.1",
+            port=6514,
+            protocol="tls",
+            tls_certfile="/path/to/cert.pem",
+            tls_keyfile="/path/to/key.pem",
+            tls_ca_certs="/path/to/ca.pem",
+            tls_verify_client=True,
+            tls_min_version="TLSv1_2",
+            tls_ciphers="HIGH:!aNULL:!MD5",
+        )
+        server = SyslogServer(config)
+
+        # Create mock objects
+        mock_loop = AsyncMock()
+        mock_server = AsyncMock()
+        mock_context = MagicMock()
+        mock_loop.create_server.return_value = mock_server
+        mock_create_context.return_value = mock_context
+
+        # Start the server
+        server.loop = mock_loop
+        result_server, result_context = await server.start_tls_server("127.0.0.1", 6514)
+
+        # Verify the results
+        assert result_server == mock_server
+        assert result_context == mock_context
+
+        # Verify the context was created with the correct parameters
+        mock_create_context.assert_called_once_with(
+            certfile="/path/to/cert.pem",
+            keyfile="/path/to/key.pem",
+            ca_certs="/path/to/ca.pem",
+            verify_client=True,
+            min_version=ssl.TLSVersion.TLSv1_2,
+            ciphers="HIGH:!aNULL:!MD5",
+        )
+
+        # Verify the server was created with the correct parameters
+        mock_loop.create_server.assert_called_once()
+        call_args = mock_loop.create_server.call_args
+        assert call_args[0][1] == "127.0.0.1"  # host
+        assert call_args[0][2] == 6514  # port
+        assert call_args[1]["ssl"] == mock_context  # ssl context
+
     async def test_start_with_tcp(self):
         """Test starting the server with TCP protocol."""
         config = Config(host="127.0.0.1", port=1514, protocol="tcp")
@@ -171,6 +225,46 @@ class TestSyslogServer:
         assert server.udp_transport is None
         assert server.udp_protocol is None
         assert server.tcp_server is None
+        assert server.tls_server is None
+
+    async def test_start_with_tls(self):
+        """Test starting the server with TLS protocol."""
+        config = Config(
+            host="127.0.0.1",
+            port=6514,
+            protocol="tls",
+            tls_certfile="/path/to/cert.pem",
+            tls_keyfile="/path/to/key.pem",
+        )
+        server = SyslogServer(config)
+
+        # Mock the TLS server method
+        mock_tls_server = AsyncMock()
+        mock_tls_context = MagicMock()
+        server.start_tls_server = AsyncMock(
+            return_value=(mock_tls_server, mock_tls_context)
+        )
+
+        # Start the server
+        await server.start()
+
+        # Verify the TLS server was started
+        server.start_tls_server.assert_called_once_with("127.0.0.1", 6514)
+        assert server.tls_server == mock_tls_server
+        assert server.tls_context == mock_tls_context
+        assert server.udp_transport is None
+        assert server.udp_protocol is None
+        assert server.tcp_server is None
+        assert server.unix_server is None
+
+    async def test_start_tls_missing_cert(self):
+        """Test starting the server with TLS protocol but missing certificate."""
+        config = Config(protocol="tls", tls_certfile=None, tls_keyfile=None)
+        server = SyslogServer(config)
+
+        # Start the server and expect an error
+        with pytest.raises(RuntimeError):
+            await server.start()
 
     async def test_start_invalid_protocol(self):
         """Test starting the server with an invalid protocol."""
@@ -250,6 +344,27 @@ class TestSyslogServer:
             # Verify socket file was removed
             mock_unlink.assert_called_once_with(socket_path)
             assert "Stopping syslog server" in caplog.text
+
+    async def test_stop_tls(self, caplog):
+        """Test stopping a TLS server."""
+        caplog.set_level(logging.INFO)
+        server = SyslogServer()
+        # Use a mock server with proper async methods
+        mock_server = MagicMock()
+        mock_server.wait_closed = AsyncMock()
+        mock_context = MagicMock()
+        server.tls_server = mock_server
+        server.tls_context = mock_context
+
+        # Stop the server
+        await server.stop()
+
+        # Verify the server was closed
+        mock_server.close.assert_called_once()
+        mock_server.wait_closed.assert_called_once()
+        assert server.tls_server is None
+        assert server.tls_context is None
+        assert "Stopping syslog server" in caplog.text
 
     @patch("asyncio.sleep")
     async def test_run_forever(self, mock_sleep):

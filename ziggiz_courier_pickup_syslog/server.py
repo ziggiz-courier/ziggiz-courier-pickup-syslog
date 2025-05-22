@@ -13,6 +13,7 @@
 import asyncio
 import logging
 import os
+import ssl
 
 from typing import Optional, Tuple
 
@@ -20,6 +21,10 @@ from typing import Optional, Tuple
 # Local imports
 from ziggiz_courier_pickup_syslog.config import Config
 from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
+from ziggiz_courier_pickup_syslog.protocol.tls import (
+    SyslogTLSProtocol,
+    TLSContextBuilder,
+)
 from ziggiz_courier_pickup_syslog.protocol.udp import SyslogUDPProtocol
 from ziggiz_courier_pickup_syslog.protocol.unix import SyslogUnixProtocol
 
@@ -45,6 +50,8 @@ class SyslogServer:
         self.udp_protocol = None
         self.tcp_server = None
         self.unix_server = None
+        self.tls_server = None
+        self.tls_context = None
 
     async def start(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         """
@@ -83,6 +90,15 @@ class SyslogServer:
                 self.unix_server = await self.start_unix_server(unix_socket_path)
                 self.logger.info(
                     f"Starting syslog server with UNIX protocol on {unix_socket_path}"
+                )
+            elif protocol == "tls":
+                # Check for required TLS configuration
+                if not self.config.tls_certfile or not self.config.tls_keyfile:
+                    raise ValueError(
+                        "TLS certificate and key files must be provided for TLS protocol"
+                    )
+                self.tls_server, self.tls_context = await self.start_tls_server(
+                    host, port
                 )
             else:
                 raise ValueError(f"Invalid protocol specified: {protocol}")
@@ -196,6 +212,76 @@ class SyslogServer:
             self.logger.error(f"Failed to start Unix Stream server: {e}")
             raise
 
+    async def start_tls_server(
+        self, host: str, port: int
+    ) -> Tuple[asyncio.AbstractServer, ssl.SSLContext]:
+        """
+        Start a TLS syslog server.
+
+        Args:
+            host: The host address to bind to
+            port: The port to listen on
+
+        Returns:
+            A tuple of (server, ssl_context)
+
+        Raises:
+            Exception: If the server cannot be started
+        """
+        try:
+            # Get TLS configuration from config
+            certfile = self.config.tls_certfile
+            keyfile = self.config.tls_keyfile
+            ca_certs = self.config.tls_ca_certs
+            verify_client = self.config.tls_verify_client
+
+            # Convert string TLS version to enum
+            tls_version_str = self.config.tls_min_version
+            if tls_version_str == "TLSv1_2":
+                min_version = ssl.TLSVersion.TLSv1_2
+            else:  # Default to TLSv1_3
+                min_version = ssl.TLSVersion.TLSv1_3
+
+            ciphers = self.config.tls_ciphers
+
+            # Create SSL context
+            ssl_context = TLSContextBuilder.create_server_context(
+                certfile=certfile,
+                keyfile=keyfile,
+                ca_certs=ca_certs,
+                verify_client=verify_client,
+                min_version=min_version,
+                ciphers=ciphers,
+            )
+
+            # Create a factory function to pass configuration options to the protocol
+            def protocol_factory():
+                return SyslogTLSProtocol(
+                    framing_mode=self.config.framing_mode,
+                    end_of_message_marker=self.config.end_of_message_marker,
+                    max_message_length=self.config.max_message_length,
+                    decoder_type=self.config.decoder_type,
+                )
+
+            # Create the server
+            server = await self.loop.create_server(
+                protocol_factory,
+                host,
+                port,
+                ssl=ssl_context,
+            )
+
+            # Log server information
+            self.logger.info(
+                f"TLS server listening on {host}:{port} with framing mode: {self.config.framing_mode}, "
+                f"TLS version: {tls_version_str}"
+            )
+
+            return server, ssl_context
+        except Exception as e:
+            self.logger.error(f"Failed to start TLS server: {e}")
+            raise
+
     async def stop(self) -> None:
         """
         Stop the syslog server.
@@ -236,6 +322,16 @@ class SyslogServer:
                 except OSError as e:
                     self.logger.warning(f"Error removing Unix socket file: {e}")
 
+        # Clean up TLS resources
+        if self.tls_server:
+            self.logger.debug("Closing TLS server")
+            # TLS server's close method is synchronous, no need to await it
+            self.tls_server.close()
+            # But wait_closed is a coroutine that needs to be awaited
+            await self.tls_server.wait_closed()
+            self.tls_server = None
+            self.tls_context = None
+
     async def run_forever(self) -> None:
         """
         Run the server until interrupted.
@@ -256,6 +352,6 @@ class SyslogServer:
         """
         Clean up resources when the object is garbage collected.
         """
-        if self.udp_transport or self.tcp_server or self.unix_server:
+        if self.udp_transport or self.tcp_server or self.unix_server or self.tls_server:
             self.logger.warning("Server resources not properly cleaned up.")
             # We can't run async code in __del__, so just log a warning

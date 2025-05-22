@@ -1,0 +1,41 @@
+# Ziggiz Courier Pickup Syslog Server Configuration with TLS Protocol
+
+# Server configuration
+host: "::"           # IPv6 address to bind to (for dual stack support)
+protocol: "tls"      # Using TLS protocol
+port: 6514           # Standard TLS syslog port
+
+# TLS configuration
+tls_certfile: "/path/to/server.crt"  # Path to the server certificate file
+tls_keyfile: "/path/to/server.key"   # Path to the server private key file
+tls_ca_certs: "/path/to/ca.crt"      # Path to the CA certificates file (optional)
+tls_verify_client: false             # Whether to verify client certificates
+tls_min_version: "TLSv1_3"           # Minimum TLS version to accept
+# tls_ciphers: "HIGH:!aNULL:!MD5"    # Optional cipher string to restrict allowed ciphers
+
+# Framing configuration
+framing_mode: "auto" # Message framing mode: "auto", "transparent", or "non_transparent"
+end_of_message_marker: "\\n"  # End of message marker for non-transparent framing
+max_message_length: 16384  # Maximum message length in bytes for non-transparent framing
+
+# Decoder configuration
+decoder_type: "auto"  # Syslog decoder type: "auto", "rfc3164", "rfc5424", or "base"
+
+# Logging configuration
+log_level: "INFO"    # Root logger level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"
+log_date_format: "%Y-%m-%d %H:%M:%S"
+
+# Individual logger configurations
+loggers:
+  - name: "ziggiz_courier_pickup_syslog"
+    level: "INFO"
+    propagate: true
+
+  - name: "ziggiz_courier_pickup_syslog.protocol"
+    level: "INFO"
+    propagate: true
+
+  - name: "ziggiz_courier_pickup_syslog.protocol.tls"
+    level: "INFO"
+    propagate: true
