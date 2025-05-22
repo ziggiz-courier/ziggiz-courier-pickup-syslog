@@ -10,15 +10,18 @@
 # Tests for Unix Stream protocol
 
 # Standard library imports
+import logging
 
-# Standard library imports
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 # Third-party imports
 import pytest
 
 # Local/package imports
-# Package/Application imports
+from ziggiz_courier_pickup_syslog.protocol.framing import (
+    FramingDetectionError,
+    FramingMode,
+)
 from ziggiz_courier_pickup_syslog.protocol.unix import SyslogUnixProtocol
 
 
@@ -28,6 +31,93 @@ def unix_protocol():
     protocol = SyslogUnixProtocol()
     protocol.logger = MagicMock()
     return protocol
+
+
+@pytest.mark.unit
+def test_init():
+    """Test initialization of the protocol."""
+    protocol = SyslogUnixProtocol()
+
+    # Check that the logger is properly initialized
+    assert protocol.logger.name == "ziggiz_courier_pickup_syslog.protocol.unix"
+    assert protocol.transport is None
+    assert protocol.peername is None
+    assert protocol._read_buffer is None
+    assert protocol.max_buffer_size == 65536
+    # Check that framing_helper is initialized
+    assert hasattr(protocol, "framing_helper")
+    # Check decoder setup
+    assert protocol.decoder_type == "auto"
+    assert isinstance(protocol.connection_cache, dict)
+    assert isinstance(protocol.event_parsing_cache, dict)
+
+
+@pytest.mark.unit
+def test_connection_made_with_peer_creds(caplog):
+    """Test connection_made method with peer credentials."""
+    caplog.set_level(logging.INFO)
+    protocol = SyslogUnixProtocol()
+
+    # Create a mock transport with peer credentials
+    mock_transport = MagicMock()
+    mock_transport.get_extra_info.side_effect = lambda key: {
+        "peername": "/var/run/syslog.sock",
+        "peercreds": (1234, 100, 200),  # (pid, uid, gid)
+    }.get(key)
+
+    # Call connection_made
+    protocol.connection_made(mock_transport)
+
+    # Check the transport and peername are set
+    assert protocol.transport == mock_transport
+    assert protocol.peername == "/var/run/syslog.sock"
+    # Check log message includes peer credentials
+    assert (
+        "Unix Stream connection established from PID=1234, UID=100, GID=200"
+        in caplog.text
+    )
+
+
+@pytest.mark.unit
+def test_connection_made_without_peer_creds(caplog):
+    """Test connection_made method without peer credentials."""
+    caplog.set_level(logging.INFO)
+    protocol = SyslogUnixProtocol()
+
+    # Create a mock transport without peer credentials
+    mock_transport = MagicMock()
+    mock_transport.get_extra_info.side_effect = lambda key: {
+        "peername": "/var/run/syslog.sock",
+        "peercreds": None,
+    }.get(key)
+
+    # Call connection_made
+    protocol.connection_made(mock_transport)
+
+    # Check the transport and peername are set
+    assert protocol.transport == mock_transport
+    assert protocol.peername == "/var/run/syslog.sock"
+    # Check log message includes peername
+    assert "Unix Stream connection established from /var/run/syslog.sock" in caplog.text
+
+
+@pytest.mark.unit
+def test_connection_made_unknown_peer(caplog):
+    """Test connection_made method with unknown peer."""
+    caplog.set_level(logging.INFO)
+    protocol = SyslogUnixProtocol()
+
+    # Create a mock transport without peer info
+    mock_transport = MagicMock()
+    mock_transport.get_extra_info.return_value = None
+
+    # Call connection_made
+    protocol.connection_made(mock_transport)
+
+    # Check the transport is set and log message is created
+    assert protocol.transport == mock_transport
+    assert protocol.peername is None
+    assert "Unix Stream connection established from unknown" in caplog.text
 
 
 @pytest.mark.integration
@@ -75,6 +165,85 @@ async def test_buffer_updated(unix_protocol):
     assert unix_protocol.buffer == bytearray()
 
 
+@pytest.mark.unit
+@patch(
+    "ziggiz_courier_pickup_syslog.protocol.decoder_factory.DecoderFactory.decode_message"
+)
+def test_buffer_updated_with_decoder(mock_decode, caplog):
+    """Test buffer_updated method with decoder."""
+    caplog.set_level(logging.INFO)
+    protocol = SyslogUnixProtocol()
+    protocol.peername = "/var/run/syslog.sock"
+
+    # Setup mock decoder response
+    mock_decoded = MagicMock()
+    mock_decoded.__class__.__name__ = "EventEnvelopeBaseModel"
+    mock_decode.return_value = mock_decoded
+
+    # Create test data with a complete message
+    test_data = b"<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8\n"
+    protocol._read_buffer = bytearray(test_data)
+
+    # Call buffer_updated
+    protocol.buffer_updated(len(test_data))
+
+    # Check that the decoder was called
+    mock_decode.assert_called_once()
+    # Check that the message was logged
+    assert (
+        "Syslog message (EventEnvelopeBaseModel) from /var/run/syslog.sock"
+        in caplog.text
+    )
+
+
+@pytest.mark.unit
+def test_buffer_updated_transparent_framing(caplog):
+    """Test buffer_updated with transparent framing."""
+    caplog.set_level(logging.DEBUG)
+    protocol = SyslogUnixProtocol(framing_mode="transparent")
+    protocol.peername = "/var/run/syslog.sock"
+
+    # Create test data with a transparent framing message (length + message)
+    # Format: <length><space><message>
+    test_data = b"47 <34>Oct 11 22:14:15 mymachine su: 'su root' failed"
+    protocol._read_buffer = bytearray(test_data)
+
+    # Call buffer_updated
+    protocol.buffer_updated(len(test_data))
+
+    # Check debug log for buffer size
+    assert "Buffer size after adding data:" in caplog.text
+    assert "bytes" in caplog.text
+
+
+@pytest.mark.unit
+def test_buffer_updated_framing_error(caplog):
+    """Test buffer_updated method with framing error."""
+    caplog.set_level(logging.ERROR)
+    protocol = SyslogUnixProtocol(framing_mode="transparent")
+    protocol.peername = "/var/run/syslog.sock"
+    protocol.transport = MagicMock()
+
+    # Create a method that raises FramingDetectionError when called
+    def mock_add_data(data):
+        raise FramingDetectionError("Test framing error")
+
+    protocol.framing_helper.add_data = mock_add_data
+
+    # Call buffer_updated with test data
+    test_data = b"invalid data"
+    protocol._read_buffer = bytearray(test_data)
+    protocol.buffer_updated(len(test_data))
+
+    # Check that the error was logged
+    assert "Framing error from /var/run/syslog.sock: Test framing error" in caplog.text
+
+    # Note: The "Closing connection due to framing error" message is logged at WARNING level
+    # but we set the caplog level to ERROR, so we won't see it.
+    # Instead, we'll just check that transport.close was called
+    protocol.transport.close.assert_called_once()
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_eof_received(unix_protocol):
@@ -90,6 +259,50 @@ async def test_eof_received(unix_protocol):
     assert unix_protocol.logger.info.called
     assert unix_protocol.buffer == bytearray()
     assert result is False  # Should return False to close the transport
+
+
+@pytest.mark.unit
+def test_eof_received_with_partial_transparent_message(caplog):
+    """Test eof_received with partial transparent message."""
+    caplog.set_level(logging.WARNING)
+    protocol = SyslogUnixProtocol(framing_mode="transparent")
+    protocol.peername = "/var/run/syslog.sock"
+
+    # Create a partial transparent message (length prefix but incomplete message)
+    protocol.framing_helper._buffer.extend(b"100 <34>Oct 11 22:14:15 mymachine")
+
+    # Call eof_received
+    result = protocol.eof_received()
+
+    # Check that warning about incomplete message was logged
+    assert "Incomplete transparent message from /var/run/syslog.sock" in caplog.text
+    assert "received" in caplog.text
+    assert "of 100 bytes" in caplog.text
+    # Check return value (should be False to close the transport)
+    assert result is False
+
+
+@pytest.mark.unit
+def test_eof_received_with_non_transparent_data_in_transparent_mode(caplog):
+    """Test eof_received with non-transparent data in transparent mode."""
+    # Set log level to capture ERROR messages
+    caplog.set_level(logging.ERROR)
+    protocol = SyslogUnixProtocol(framing_mode="transparent")
+    protocol.peername = "/var/run/syslog.sock"
+
+    # Add non-transparent data to the buffer
+    protocol.framing_helper._buffer.extend(b"<34>Oct 11 22:14:15 mymachine su: message")
+
+    # Call eof_received
+    result = protocol.eof_received()
+
+    # In the actual implementation, this causes an error because the data doesn't match
+    # the transparent framing format (should start with a number)
+    assert "Error processing final data from /var/run/syslog.sock" in caplog.text
+    assert "Invalid transparent framing format" in caplog.text
+
+    # Check return value (should be False to close the transport)
+    assert result is False
 
 
 @pytest.mark.integration
@@ -124,3 +337,42 @@ async def test_connection_lost(unix_protocol):
     assert unix_protocol.buffer == bytearray()
     assert unix_protocol._read_buffer is None
     assert unix_protocol.transport is None
+
+
+@pytest.mark.unit
+def test_buffer_property_setter():
+    """Test the buffer property setter."""
+    protocol = SyslogUnixProtocol()
+
+    # Set a value to the buffer
+    test_data = b"test data"
+    protocol.buffer = test_data
+
+    # Check that the buffer contains the data
+    assert protocol.buffer == bytearray(test_data)
+
+    # Set a new value
+    new_data = b"new data"
+    protocol.buffer = new_data
+
+    # Check that the buffer was cleared and contains the new data
+    assert protocol.buffer == bytearray(new_data)
+
+
+@pytest.mark.unit
+def test_unix_with_different_framing_modes():
+    """Test Unix protocol with different framing modes."""
+    # Test with non_transparent mode
+    protocol_non_transparent = SyslogUnixProtocol(framing_mode="non_transparent")
+    assert (
+        protocol_non_transparent.framing_helper.framing_mode
+        == FramingMode.NON_TRANSPARENT
+    )
+
+    # Test with transparent mode
+    protocol_transparent = SyslogUnixProtocol(framing_mode="transparent")
+    assert protocol_transparent.framing_helper.framing_mode == FramingMode.TRANSPARENT
+
+    # Test with auto mode (default)
+    protocol_auto = SyslogUnixProtocol()
+    assert protocol_auto.framing_helper.framing_mode == FramingMode.AUTO

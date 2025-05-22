@@ -12,7 +12,7 @@
 # Standard library imports
 import logging
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 # Third-party imports
 import pytest
@@ -32,6 +32,9 @@ class TestSyslogUDPProtocol:
         # Check that the logger is properly initialized
         assert protocol.logger.name == "ziggiz_courier_pickup_syslog.protocol.udp"
         assert protocol.transport is None
+        assert protocol.decoder_type == "auto"
+        assert isinstance(protocol.connection_cache, dict)
+        assert isinstance(protocol.event_parsing_cache, dict)
 
     @pytest.mark.unit
     def test_connection_made(self, caplog):
@@ -53,6 +56,26 @@ class TestSyslogUDPProtocol:
         assert "UDP server started on 127.0.0.1:514" in caplog.text
 
     @pytest.mark.unit
+    def test_connection_made_ipv6(self, caplog):
+        """Test connection_made method with IPv6 address."""
+        caplog.set_level(logging.INFO)
+        protocol = SyslogUDPProtocol()
+
+        # Create a mock transport with IPv6 socket info
+        mock_transport = MagicMock()
+        mock_socket = MagicMock()
+        # IPv6 socket returns (host, port, flowinfo, scopeid)
+        mock_socket.getsockname.return_value = ("::1", 514, 0, 0)
+        mock_transport.get_extra_info.return_value = mock_socket
+
+        # Call connection_made
+        protocol.connection_made(mock_transport)
+
+        # Check the transport is set and log message is created
+        assert protocol.transport == mock_transport
+        assert "UDP server started on ::1:514" in caplog.text
+
+    @pytest.mark.unit
     def test_connection_made_no_socket_info(self, caplog):
         """Test connection_made method when socket info is not available."""
         caplog.set_level(logging.INFO)
@@ -70,25 +93,45 @@ class TestSyslogUDPProtocol:
         assert "UDP server started" in caplog.text
 
     @pytest.mark.unit
-    def test_datagram_received(self, caplog):
+    @patch(
+        "ziggiz_courier_pickup_syslog.protocol.decoder_factory.DecoderFactory.decode_message"
+    )
+    def test_datagram_received(self, mock_decode, caplog):
         """Test datagram_received method."""
         caplog.set_level(logging.INFO)
         protocol = SyslogUDPProtocol()
+
+        # Setup mock decoder response
+        mock_decoded = MagicMock()
+        mock_decoded.__class__.__name__ = "EventEnvelopeBaseModel"
+        mock_decode.return_value = mock_decoded
 
         # Call datagram_received with test data
         data = b"<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8"
         addr = ("192.168.1.1", 54321)
         protocol.datagram_received(data, addr)
 
-        # Check that the message is properly logged
-        assert "192.168.1.1:54321" in caplog.text
-        assert "su root" in caplog.text
+        # Check that the decoder was called
+        mock_decode.assert_called_once()
+        # Check that the message was logged with the correct type
+        assert (
+            "Syslog message (EventEnvelopeBaseModel) from 192.168.1.1:54321"
+            in caplog.text
+        )
 
     @pytest.mark.unit
-    def test_datagram_received_rfc5424(self, caplog):
+    @patch(
+        "ziggiz_courier_pickup_syslog.protocol.decoder_factory.DecoderFactory.decode_message"
+    )
+    def test_datagram_received_rfc5424(self, mock_decode, caplog):
         """Test datagram_received method with RFC5424 format message."""
         caplog.set_level(logging.INFO)
         protocol = SyslogUDPProtocol()
+
+        # Setup mock decoder response
+        mock_decoded = MagicMock()
+        mock_decoded.__class__.__name__ = "EventEnvelopeBaseModel"
+        mock_decode.return_value = mock_decoded
 
         # Call datagram_received with RFC5424 format test data
         # Format: <PRI>VERSION TIMESTAMP HOSTNAME APP-NAME PROCID MSGID STRUCTURED-DATA MSG
@@ -96,9 +139,89 @@ class TestSyslogUDPProtocol:
         addr = ("192.168.1.2", 54322)
         protocol.datagram_received(data, addr)
 
-        # Check that the message is properly logged
-        assert "192.168.1.2:54322" in caplog.text
-        assert "su root" in caplog.text
+        # Check that the decoder was called
+        mock_decode.assert_called_once()
+        # Check that the message was logged with the correct type
+        assert (
+            "Syslog message (EventEnvelopeBaseModel) from 192.168.1.2:54322"
+            in caplog.text
+        )
+
+    @pytest.mark.unit
+    @patch(
+        "ziggiz_courier_pickup_syslog.protocol.decoder_factory.DecoderFactory.decode_message"
+    )
+    def test_datagram_received_ipv6(self, mock_decode, caplog):
+        """Test datagram_received method with IPv6 address."""
+        caplog.set_level(logging.INFO)
+        protocol = SyslogUDPProtocol()
+
+        # Setup mock decoder response
+        mock_decoded = MagicMock()
+        mock_decoded.__class__.__name__ = "EventEnvelopeBaseModel"
+        mock_decode.return_value = mock_decoded
+
+        # Call datagram_received with IPv6 address
+        data = b"<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8"
+        addr = ("2001:db8::1", 54321)  # IPv6 address
+        protocol.datagram_received(data, addr)
+
+        # Check that the decoder was called
+        mock_decode.assert_called_once()
+        # Check that the message was logged with the IPv6 address
+        assert (
+            "Syslog message (EventEnvelopeBaseModel) from 2001:db8::1:54321"
+            in caplog.text
+        )
+
+    @pytest.mark.unit
+    @patch(
+        "ziggiz_courier_pickup_syslog.protocol.decoder_factory.DecoderFactory.decode_message"
+    )
+    def test_datagram_received_malformed_message(self, mock_decode, caplog):
+        """Test datagram_received method with malformed message."""
+        # Set log level to capture both WARNING and INFO messages
+        caplog.set_level(logging.INFO)
+        protocol = SyslogUDPProtocol()
+
+        # Setup mock decoder to raise an exception
+        mock_decode.side_effect = ValueError("Invalid syslog format")
+
+        # Call datagram_received with malformed data
+        data = b"This is not a valid syslog message"
+        addr = ("192.168.1.3", 54323)
+        protocol.datagram_received(data, addr)
+
+        # Check that the warning was logged
+        assert (
+            "Failed to parse syslog message from 192.168.1.3:54323: Invalid syslog format"
+            in caplog.text
+        )
+        # Check that the raw message was also logged (this is logged at INFO level)
+        assert "Raw syslog message from 192.168.1.3:54323" in caplog.text
+
+    @pytest.mark.unit
+    def test_datagram_received_import_error(self, caplog):
+        """Test datagram_received method when decoder is not available."""
+        caplog.set_level(logging.INFO)
+        protocol = SyslogUDPProtocol()
+
+        # Patch DecoderFactory.decode_message to raise ImportError
+        with patch(
+            "ziggiz_courier_pickup_syslog.protocol.decoder_factory.DecoderFactory.decode_message",
+            side_effect=ImportError(
+                "ziggiz_courier_handler_core package not available"
+            ),
+        ):
+
+            # Call datagram_received with test data
+            data = b"<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8"
+            addr = ("192.168.1.4", 54324)
+            protocol.datagram_received(data, addr)
+
+            # Check that the message was logged without type information
+            assert "Syslog message from 192.168.1.4:54324" in caplog.text
+            assert "EventEnvelopeBaseModel" not in caplog.text
 
     @pytest.mark.unit
     def test_error_received(self, caplog):
@@ -113,6 +236,7 @@ class TestSyslogUDPProtocol:
         # Check that the error is properly logged
         assert "Error in UDP server: Test error" in caplog.text
 
+    @pytest.mark.unit
     def test_connection_lost_with_exception(self, caplog):
         """Test connection_lost method with an exception."""
         caplog.set_level(logging.WARNING)
@@ -127,6 +251,7 @@ class TestSyslogUDPProtocol:
             "UDP server connection closed with error: Connection error" in caplog.text
         )
 
+    @pytest.mark.unit
     def test_connection_lost_without_exception(self, caplog):
         """Test connection_lost method without an exception."""
         caplog.set_level(logging.INFO)
@@ -137,3 +262,18 @@ class TestSyslogUDPProtocol:
 
         # Check that the info is properly logged
         assert "UDP server connection closed" in caplog.text
+
+    @pytest.mark.unit
+    def test_custom_decoder_type(self):
+        """Test initialization with custom decoder type."""
+        # Test with rfc3164 decoder type
+        protocol_rfc3164 = SyslogUDPProtocol(decoder_type="rfc3164")
+        assert protocol_rfc3164.decoder_type == "rfc3164"
+
+        # Test with rfc5424 decoder type
+        protocol_rfc5424 = SyslogUDPProtocol(decoder_type="rfc5424")
+        assert protocol_rfc5424.decoder_type == "rfc5424"
+
+        # Test with base decoder type
+        protocol_base = SyslogUDPProtocol(decoder_type="base")
+        assert protocol_base.decoder_type == "base"
