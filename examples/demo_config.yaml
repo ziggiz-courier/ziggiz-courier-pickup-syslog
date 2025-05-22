@@ -1,0 +1,41 @@
+# Ziggiz Courier Pickup Syslog Server Demo Configuration
+
+# Server configuration
+host: "127.0.0.1"  # Listen on localhost for the demo
+protocol: "udp"    # UDP is simpler for demo purposes
+port: 5140         # Using a non-privileged port for the demo
+
+# Framing configuration
+framing_mode: "auto"
+end_of_message_marker: "\n"
+max_message_length: 16384
+
+# Decoder configuration
+decoder_type: "auto"  # Auto-detect message format
+
+# Logging configuration - Set to DEBUG to show decoded messages
+log_level: "DEBUG"
+log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"
+log_date_format: "%Y-%m-%d %H:%M:%S"
+
+# Individual logger configurations
+loggers:
+  # Main application logger
+  - name: "ziggiz_courier_pickup_syslog"
+    level: "DEBUG"
+    propagate: true
+
+  # Protocol handlers
+  - name: "ziggiz_courier_pickup_syslog.protocol"
+    level: "DEBUG"
+    propagate: true
+
+  # Message decoders
+  - name: "ziggiz_courier_pickup_syslog.protocol.decoder"
+    level: "DEBUG"
+    propagate: true
+
+  # Limit noise from asyncio
+  - name: "asyncio"
+    level: "WARNING"
+    propagate: true
