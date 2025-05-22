@@ -323,7 +323,7 @@ class FramingHelper:
 
             # Use eval to interpret escape sequences
             # This is safe as we're only handling a single string literal
-            marker_bytes = eval(f'b"{marker_str}"', {"__builtins__": {}})
+            marker_bytes: bytes = eval(f'b"{marker_str}"', {"__builtins__": {}})
             return marker_bytes
         except Exception as e:
             raise ValueError(f"Invalid end-of-message marker: {marker_str}") from e
