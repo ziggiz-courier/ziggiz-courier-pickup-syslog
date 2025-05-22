@@ -1,5 +1,9 @@
 # Ziggiz Courier Pickup Syslog
 
+[![CI](https://github.com/ziggiz-courier/ziggiz-courier-pickup-syslog/actions/workflows/ci.yml/badge.svg)](https://github.com/ziggiz-courier/ziggiz-courier-pickup-syslog/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ziggiz-courier/ziggiz-courier-pickup-syslog/branch/main/graph/badge.svg)](https://codecov.io/gh/ziggiz-courier/ziggiz-courier-pickup-syslog)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-3130/)
+
 A syslog server for Ziggiz Courier pickup events that receives syslog messages over UDP, TCP, and Unix Stream protocols.
 
 ## Installation
@@ -155,3 +159,69 @@ Command line arguments override the corresponding settings in the configuration 
 - `--max-message-length`: Maximum message length in bytes for non-transparent framing
 - `--decoder-type`: Syslog decoder type (auto, rfc3164, rfc5424, base)
 - `--log-level`: Logging level
+
+## Development
+
+### Prerequisites
+
+- Python 3.13
+- Poetry for dependency management
+
+### Setup Development Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/ziggiz-courier/ziggiz-courier-pickup-syslog.git
+cd ziggiz-courier-pickup-syslog
+
+# Install dependencies with Poetry
+poetry install
+
+# Activate the virtual environment
+poetry shell
+```
+
+### Running Tests
+
+```bash
+# Run tests with pytest
+pytest
+
+# Run tests with coverage
+pytest --cov=ziggiz_courier_pickup_syslog
+
+# Run tests with tox (all environments)
+tox
+```
+
+### Code Quality
+
+The project uses several tools to ensure code quality:
+
+- **Black**: Code formatter
+- **isort**: Import sorter
+- **Flake8**: Linter
+- **MyPy**: Static type checker
+
+You can run these tools using tox:
+
+```bash
+# Run linters
+tox -e lint
+
+# Run type checking
+tox -e mypy
+```
+
+### Continuous Integration
+
+This project uses GitHub Actions for continuous integration. The CI pipeline:
+
+1. Runs tests on Python 3.13
+2. Runs linters (black, isort, flake8)
+3. Runs type checking with mypy
+4. Generates and uploads test coverage to Codecov
+
+The CI workflow is triggered on:
+- Push to main/master branch
+- Pull requests to main/master branch
