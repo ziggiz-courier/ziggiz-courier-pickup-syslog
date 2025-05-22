@@ -244,14 +244,23 @@ class SyslogServer:
 
             ciphers = self.config.tls_ciphers
 
-            # Create SSL context
-            ssl_context = TLSContextBuilder.create_server_context(
+            # Get certificate verification rules if configured
+            cert_rules = None
+            if self.config.tls_cert_rules:
+                cert_rules = [rule.dict() for rule in self.config.tls_cert_rules]
+                self.logger.info(
+                    f"Using {len(cert_rules)} certificate verification rules"
+                )
+
+            # Create SSL context and certificate verifier
+            ssl_context, cert_verifier = TLSContextBuilder.create_server_context(
                 certfile=certfile,
                 keyfile=keyfile,
                 ca_certs=ca_certs,
                 verify_client=verify_client,
                 min_version=min_version,
                 ciphers=ciphers,
+                cert_rules=cert_rules,
             )
 
             # Create a factory function to pass configuration options to the protocol
@@ -261,6 +270,7 @@ class SyslogServer:
                     end_of_message_marker=self.config.end_of_message_marker,
                     max_message_length=self.config.max_message_length,
                     decoder_type=self.config.decoder_type,
+                    cert_verifier=cert_verifier,
                 )
 
             # Create the server

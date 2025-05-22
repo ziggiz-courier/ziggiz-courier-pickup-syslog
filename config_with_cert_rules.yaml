@@ -1,0 +1,57 @@
+# Sample configuration file with certificate verification rules
+# This configuration sets up a TLS server that verifies client certificates
+# based on specific attributes like CN (Common Name) and OU (Organizational Unit)
+
+# Server configuration
+host: "::"  # IPv6 for dual-stack support
+protocol: "tls"  # Use TLS protocol
+port: 6514  # Standard TLS syslog port
+
+# TLS configuration
+tls_certfile: "/path/to/server_cert.pem"  # Path to the server certificate file
+tls_keyfile: "/path/to/server_key.pem"  # Path to the server private key file
+tls_ca_certs: "/path/to/ca_certs.pem"  # Path to the CA certificates file for client verification
+tls_verify_client: true  # Enable client certificate verification
+tls_min_version: "TLSv1_3"  # Minimum TLS version to accept
+tls_ciphers: "HIGH:!aNULL:!MD5"  # Optional cipher string to restrict allowed ciphers
+
+# Certificate verification rules
+# These rules define patterns that client certificate attributes must match
+tls_cert_rules:
+  # Rule for Common Name (CN)
+  - attribute: "CN"
+    pattern: "client[0-9]+\\.example\\.com"  # Regex pattern to match
+    required: true  # This attribute must be present
+
+  # Rule for Organizational Unit (OU)
+  - attribute: "OU"
+    pattern: "(DevOps|Operations)"  # Match either DevOps or Operations
+    required: true  # This attribute must be present
+
+  # Rule for Organization (O)
+  - attribute: "O"
+    pattern: "Example Corp"  # Exact match for organization
+    required: false  # This attribute is optional
+
+# Framing configuration
+framing_mode: "non_transparent"  # Use non-transparent framing for TLS
+end_of_message_marker: "\n"  # End of message marker for non-transparent framing
+max_message_length: 16384  # Maximum message length in bytes
+
+# Syslog decoder configuration
+decoder_type: "rfc5424"  # Use RFC 5424 decoder
+
+# Logging configuration
+log_level: "INFO"
+log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"
+log_date_format: "%Y-%m-%d %H:%M:%S"
+
+# Additional logger configurations
+loggers:
+  - name: "ziggiz_courier_pickup_syslog.protocol.tls"
+    level: "DEBUG"  # Set TLS protocol logger to DEBUG level for more detailed information
+    propagate: true
+
+  - name: "ziggiz_courier_pickup_syslog.protocol.cert_verify"
+    level: "DEBUG"  # Set certificate verification logger to DEBUG level
+    propagate: true

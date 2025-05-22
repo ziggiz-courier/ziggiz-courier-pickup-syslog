@@ -139,8 +139,9 @@ class TestSyslogServer:
         mock_loop = AsyncMock()
         mock_server = AsyncMock()
         mock_context = MagicMock()
+        mock_cert_verifier = MagicMock()
         mock_loop.create_server.return_value = mock_server
-        mock_create_context.return_value = mock_context
+        mock_create_context.return_value = (mock_context, mock_cert_verifier)
 
         # Start the server
         server.loop = mock_loop
@@ -158,6 +159,7 @@ class TestSyslogServer:
             verify_client=True,
             min_version=ssl.TLSVersion.TLSv1_2,
             ciphers="HIGH:!aNULL:!MD5",
+            cert_rules=None,
         )
 
         # Verify the server was created with the correct parameters

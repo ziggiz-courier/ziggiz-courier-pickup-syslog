@@ -18,7 +18,7 @@ from typing import List, Optional, Union
 # Third-party imports
 import yaml
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class LoggerConfig(BaseModel):
@@ -27,6 +27,14 @@ class LoggerConfig(BaseModel):
     name: str
     level: str = "INFO"
     propagate: bool = True
+
+
+class CertificateRuleConfig(BaseModel):
+    """Configuration for a certificate verification rule."""
+
+    attribute: str  # The certificate attribute to check (e.g., "CN", "OU")
+    pattern: str  # The regex pattern to match against the attribute value
+    required: bool = True  # Whether this attribute is required to be present
 
 
 class Config(BaseModel):
@@ -50,6 +58,9 @@ class Config(BaseModel):
     tls_min_version: str = "TLSv1_3"  # Minimum TLS version to accept
     tls_ciphers: Optional[str] = (
         None  # Optional cipher string to restrict allowed ciphers
+    )
+    tls_cert_rules: List[CertificateRuleConfig] = Field(
+        default_factory=list  # Rules for verifying client certificate attributes
     )
 
     # Framing configuration
@@ -124,6 +135,16 @@ class Config(BaseModel):
             if v.upper() == ver.upper():
                 return ver
         return v  # This should never be reached
+
+    @model_validator(mode="after")
+    def validate_tls_cert_rules(self) -> "Config":
+        """Validate that certificate rules are only used with client verification."""
+        if self.tls_cert_rules and not self.tls_verify_client:
+            raise ValueError(
+                "Certificate rules can only be used when client verification is enabled "
+                "(tls_verify_client must be True)"
+            )
+        return self
 
 
 def load_config(config_path: Optional[Union[str, Path]] = None) -> Config:

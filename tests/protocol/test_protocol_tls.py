@@ -131,7 +131,7 @@ class TestTLSContextBuilder:
             mock_context.load_cert_chain = MagicMock()
 
             # Call the function under test
-            context = TLSContextBuilder.create_server_context(
+            context, cert_verifier = TLSContextBuilder.create_server_context(
                 certfile="cert.pem",
                 keyfile="key.pem",
             )
@@ -142,6 +142,7 @@ class TestTLSContextBuilder:
                 certfile="cert.pem", keyfile="key.pem"
             )
             assert context.minimum_version == ssl.TLSVersion.TLSv1_3
+            assert cert_verifier is None
 
     @pytest.mark.unit
     def test_create_server_context_with_client_verification(self):
@@ -158,7 +159,7 @@ class TestTLSContextBuilder:
             mock_context.load_verify_locations = MagicMock()
 
             # Call the function under test
-            context = TLSContextBuilder.create_server_context(
+            context, cert_verifier = TLSContextBuilder.create_server_context(
                 certfile="cert.pem",
                 keyfile="key.pem",
                 ca_certs="ca.pem",
@@ -172,6 +173,7 @@ class TestTLSContextBuilder:
             )
             mock_context.load_verify_locations.assert_called_once_with(cafile="ca.pem")
             assert context.verify_mode == ssl.CERT_REQUIRED
+            assert cert_verifier is None
 
     @pytest.mark.unit
     def test_create_server_context_with_custom_settings(self):
@@ -188,7 +190,7 @@ class TestTLSContextBuilder:
             mock_context.set_ciphers = MagicMock()
 
             # Call the function under test
-            context = TLSContextBuilder.create_server_context(
+            context, cert_verifier = TLSContextBuilder.create_server_context(
                 certfile="cert.pem",
                 keyfile="key.pem",
                 min_version=ssl.TLSVersion.TLSv1_2,
@@ -202,20 +204,26 @@ class TestTLSContextBuilder:
             )
             mock_context.set_ciphers.assert_called_once_with("HIGH:!aNULL:!MD5")
             assert context.minimum_version == ssl.TLSVersion.TLSv1_2
+            assert cert_verifier is None
 
     @pytest.mark.unit
     def test_create_server_context_missing_ca_certs(self):
         """Test creating a server SSL context with client verification but missing CA certs."""
-        # Call the function under test and expect an error
-        with pytest.raises(ValueError) as excinfo:
-            TLSContextBuilder.create_server_context(
-                certfile="cert.pem",
-                keyfile="key.pem",
-                verify_client=True,
-            )
+        # Mock the ssl.create_default_context function to avoid file not found errors
+        mock_context = MagicMock()
+        with patch("ssl.create_default_context", return_value=mock_context):
+            mock_context.load_cert_chain = MagicMock()
 
-        # Check that the correct error is raised
-        assert "CA certificates file must be provided" in str(excinfo.value)
+            # Call the function under test and expect an error
+            with pytest.raises(ValueError) as excinfo:
+                TLSContextBuilder.create_server_context(
+                    certfile="cert.pem",
+                    keyfile="key.pem",
+                    verify_client=True,
+                )
+
+            # Check that the correct error is raised
+            assert "CA certificates file must be provided" in str(excinfo.value)
 
 
 @pytest.mark.asyncio
@@ -223,10 +231,11 @@ async def test_create_tls_server():
     """Test creating a TLS server."""
     # Mock the TLSContextBuilder.create_server_context method
     mock_ssl_context = MagicMock()
+    mock_cert_verifier = MagicMock()
 
     with patch(
         "ziggiz_courier_pickup_syslog.protocol.tls.TLSContextBuilder.create_server_context",
-        return_value=mock_ssl_context,
+        return_value=(mock_ssl_context, mock_cert_verifier),
     ) as mock_create_context:
 
         # Mock asyncio.start_server
@@ -256,6 +265,7 @@ async def test_create_tls_server():
                 verify_client=True,
                 min_version=ssl.TLSVersion.TLSv1_3,
                 ciphers=None,
+                cert_rules=None,
             )
 
             # Check that start_server was called

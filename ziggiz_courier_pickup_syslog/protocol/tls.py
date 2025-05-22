@@ -14,9 +14,13 @@ import asyncio
 import logging
 import ssl
 
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 # Local/package imports
+from ziggiz_courier_pickup_syslog.protocol.cert_verify import (
+    CertificateVerifier,
+    create_verifier_from_config,
+)
 from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
 
 
@@ -35,6 +39,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
         end_of_message_marker: str = "\\n",
         max_message_length: int = 16 * 1024,
         decoder_type: str = "auto",
+        cert_verifier: Optional[CertificateVerifier] = None,
     ):
         """
         Initialize the TLS protocol.
@@ -44,6 +49,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             end_of_message_marker: The marker indicating end of message for non-transparent framing
             max_message_length: Maximum message length for non-transparent framing
             decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
+            cert_verifier: Optional certificate verifier for client certificate validation
         """
         super().__init__(
             framing_mode=framing_mode,
@@ -53,6 +59,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
         )
         # Override the logger name for TLS
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tls")
+        self.cert_verifier = cert_verifier
 
     def connection_made(self, transport) -> None:
         """
@@ -77,10 +84,58 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                 f"TLS connection established from {host}:{port} "
                 f"using {version}, cipher: {cipher[0]}, bits: {cipher[2]}"
             )
+
+            # Log and verify client certificate if available
+            peer_cert = ssl_object.getpeercert()
+            if peer_cert:
+                self._log_certificate_info(peer_cert, host, port)
+
+                # Verify certificate attributes if a verifier is configured
+                if self.cert_verifier:
+                    if not self.cert_verifier.verify_certificate(ssl_object):
+                        self.logger.warning(
+                            f"Client certificate from {host}:{port} failed attribute verification"
+                        )
+                        # We don't close the connection here because the SSL handshake has already
+                        # completed. The application layer will need to decide how to handle this.
+            else:
+                self.logger.warning(
+                    f"No client certificate provided from {host}:{port}"
+                )
         else:
             self.logger.warning(
                 f"TLS connection established from {host}:{port} but SSL information is not available"
             )
+
+    def _log_certificate_info(
+        self, cert: Dict, host: str, port: Union[str, int]
+    ) -> None:
+        """
+        Log information about a client certificate.
+
+        Args:
+            cert: The certificate dictionary
+            host: The client host
+            port: The client port
+        """
+        # Extract and log certificate subject information
+        subject = cert.get("subject", [])
+        subject_str = ", ".join([f"{name}={value}" for ((name, value),) in subject])
+
+        # Extract and log certificate issuer information
+        issuer = cert.get("issuer", [])
+        issuer_str = ", ".join([f"{name}={value}" for ((name, value),) in issuer])
+
+        # Log certificate validity period
+        not_before = cert.get("notBefore", "unknown")
+        not_after = cert.get("notAfter", "unknown")
+
+        self.logger.info(
+            f"Client certificate from {host}:{port}:\n"
+            f"  Subject: {subject_str}\n"
+            f"  Issuer: {issuer_str}\n"
+            f"  Valid from {not_before} to {not_after}"
+        )
 
 
 class TLSContextBuilder:
@@ -99,7 +154,8 @@ class TLSContextBuilder:
         verify_client: bool = False,
         min_version: ssl.TLSVersion = ssl.TLSVersion.TLSv1_3,
         ciphers: Optional[str] = None,
-    ) -> ssl.SSLContext:
+        cert_rules: Optional[List[Dict[str, Union[str, bool]]]] = None,
+    ) -> Tuple[ssl.SSLContext, Optional[CertificateVerifier]]:
         """
         Create an SSL context for the server.
 
@@ -110,9 +166,10 @@ class TLSContextBuilder:
             verify_client: Whether to verify client certificates
             min_version: Minimum TLS version to accept (default: TLS 1.3)
             ciphers: Optional cipher string to restrict allowed ciphers
+            cert_rules: Optional list of certificate verification rules
 
         Returns:
-            Configured SSL context
+            Tuple of (configured SSL context, certificate verifier or None)
         """
         # Create a server-side SSL context
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -127,6 +184,11 @@ class TLSContextBuilder:
         if ciphers:
             context.set_ciphers(ciphers)
 
+        # Initialize certificate verifier if rules are provided
+        cert_verifier = None
+        if cert_rules:
+            cert_verifier = create_verifier_from_config(cert_rules)
+
         # Configure client certificate verification if requested
         if verify_client:
             if ca_certs:
@@ -138,7 +200,7 @@ class TLSContextBuilder:
 
             context.verify_mode = ssl.CERT_REQUIRED
 
-        return context
+        return context, cert_verifier
 
 
 async def create_tls_server(
@@ -154,6 +216,7 @@ async def create_tls_server(
     end_of_message_marker: str = "\\n",
     max_message_length: int = 16 * 1024,
     decoder_type: str = "auto",
+    cert_rules: Optional[List[Dict[str, Union[str, bool]]]] = None,
 ) -> Tuple[asyncio.AbstractServer, ssl.SSLContext]:
     """
     Create a TLS syslog server.
@@ -171,18 +234,20 @@ async def create_tls_server(
         end_of_message_marker: The marker indicating end of message for non-transparent framing
         max_message_length: Maximum message length for non-transparent framing
         decoder_type: The type of syslog decoder to use
+        cert_rules: Optional list of certificate verification rules
 
     Returns:
         Tuple of (server, ssl_context)
     """
-    # Create SSL context
-    ssl_context = TLSContextBuilder.create_server_context(
+    # Create SSL context and certificate verifier
+    ssl_context, cert_verifier = TLSContextBuilder.create_server_context(
         certfile=certfile,
         keyfile=keyfile,
         ca_certs=ca_certs,
         verify_client=verify_client,
         min_version=min_version,
         ciphers=ciphers,
+        cert_rules=cert_rules,
     )
 
     # Create the server
@@ -196,6 +261,7 @@ async def create_tls_server(
             end_of_message_marker=end_of_message_marker,
             max_message_length=max_message_length,
             decoder_type=decoder_type,
+            cert_verifier=cert_verifier,
         ),
     )
 
