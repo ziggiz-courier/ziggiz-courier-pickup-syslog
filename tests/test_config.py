@@ -160,7 +160,7 @@ loggers:
         """Test loading configuration from a file."""
         mock_exists.return_value = True
 
-        config = load_config("test_config.yaml")
+        config = load_config("examples/config_test.yaml")
 
         assert config.host == "127.0.0.1"
         assert config.protocol == "udp"
@@ -194,7 +194,7 @@ log_level: "INFO"
         """Test loading TLS configuration from a file."""
         mock_exists.return_value = True
 
-        config = load_config("tls_config.yaml")
+        config = load_config("examples/config_tls.yaml")
 
         assert config.host == "127.0.0.1"
         assert config.protocol == "tls"

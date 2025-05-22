@@ -97,7 +97,7 @@ loggers:
 
 ## Example Configuration
 
-See the `config_with_cert_rules.yaml` file for a complete example configuration with certificate verification rules.
+See the `examples/config_tls_with_cert_rules.yaml` file for a complete example configuration with certificate verification rules.
 
 ## Generating Test Certificates
 

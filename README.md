@@ -22,10 +22,20 @@ The server can be configured using a YAML configuration file. By default, the se
 
 1. `./config.yaml` (current directory)
 2. `./config.yml` (current directory)
-3. `/etc/ziggiz-courier-pickup-syslog/config.yaml`
-4. `/etc/ziggiz-courier-pickup-syslog/config.yml`
+3. `./examples/config_basic.yaml` (examples directory)
+4. `/etc/ziggiz-courier-pickup-syslog/config.yaml`
+5. `/etc/ziggiz-courier-pickup-syslog/config.yml`
 
 You can also specify a configuration file with the `--config` option.
+
+Several example configuration files are provided in the `examples/` directory for different use cases:
+- `config_basic.yaml`: Basic TCP syslog server
+- `config_udp.yaml`: UDP syslog server
+- `config_unix.yaml`: Unix socket server with transparent framing
+- `config_unix_socket.yaml`: Unix socket server with non-transparent framing
+- `config_tls.yaml`: Basic TLS syslog server
+- `config_tls_with_cert_rules.yaml`: TLS server with certificate verification
+- `config_test.yaml`: Configuration for testing with debug logging
 
 #### Example Configuration
 

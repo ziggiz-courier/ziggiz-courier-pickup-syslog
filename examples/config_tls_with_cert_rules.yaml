@@ -1,4 +1,4 @@
-# Sample configuration file with certificate verification rules
+# Ziggiz Courier Pickup Syslog Server Configuration - TLS with Certificate Rules Example
 # This configuration sets up a TLS server that verifies client certificates
 # based on specific attributes like CN (Common Name) and OU (Organizational Unit)
 

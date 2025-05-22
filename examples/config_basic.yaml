@@ -1,4 +1,5 @@
-# Ziggiz Courier Pickup Syslog Server Configuration
+# Ziggiz Courier Pickup Syslog Server Configuration - Basic Example
+# This is a basic configuration for a TCP syslog server
 
 # Server configuration
 host: "::"           # IPv6 address to bind to (for dual stack support)

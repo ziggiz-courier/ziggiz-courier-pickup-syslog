@@ -166,6 +166,7 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> Config:
     search_paths = [
         Path.cwd() / "config.yaml",
         Path.cwd() / "config.yml",
+        Path.cwd() / "examples" / "config_basic.yaml",
         Path("/etc/ziggiz-courier-pickup-syslog/config.yaml"),
         Path("/etc/ziggiz-courier-pickup-syslog/config.yml"),
     ]
