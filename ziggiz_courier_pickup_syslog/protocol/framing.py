@@ -323,6 +323,8 @@ class FramingHelper:
 
             # Use eval to interpret escape sequences
             # This is safe as we're only handling a single string literal
+            # Explicit type annotation is needed to help mypy understand the return type
+            # Without this, mypy reports "Returning Any from function declared to return bytes"
             marker_bytes: bytes = eval(f'b"{marker_str}"', {"__builtins__": {}})
             return marker_bytes
         except Exception as e:
