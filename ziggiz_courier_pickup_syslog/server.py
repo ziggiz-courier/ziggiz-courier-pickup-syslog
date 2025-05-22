@@ -127,6 +127,8 @@ class SyslogServer:
             def protocol_factory():
                 return SyslogUDPProtocol(
                     decoder_type=self.config.decoder_type,
+                    allowed_ips=self.config.allowed_ips,
+                    deny_action=self.config.deny_action,
                 )
 
             transport, protocol = await self.loop.create_datagram_endpoint(
@@ -160,6 +162,8 @@ class SyslogServer:
                     end_of_message_marker=self.config.end_of_message_marker,
                     max_message_length=self.config.max_message_length,
                     decoder_type=self.config.decoder_type,
+                    allowed_ips=self.config.allowed_ips,
+                    deny_action=self.config.deny_action,
                 )
 
             server = await self.loop.create_server(protocol_factory, host, port)
@@ -201,6 +205,7 @@ class SyslogServer:
                     end_of_message_marker=self.config.end_of_message_marker,
                     max_message_length=self.config.max_message_length,
                     decoder_type=self.config.decoder_type,
+                    # Unix sockets don't need IP filtering
                 )
 
             server = await self.loop.create_unix_server(protocol_factory, socket_path)
@@ -271,6 +276,8 @@ class SyslogServer:
                     max_message_length=self.config.max_message_length,
                     decoder_type=self.config.decoder_type,
                     cert_verifier=cert_verifier,
+                    allowed_ips=self.config.allowed_ips,
+                    deny_action=self.config.deny_action,
                 )
 
             # Create the server

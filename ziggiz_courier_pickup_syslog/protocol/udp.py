@@ -13,10 +13,11 @@
 import asyncio
 import logging
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
+from ziggiz_courier_pickup_syslog.protocol.ip_filter import IPFilter
 
 
 class SyslogUDPProtocol(asyncio.DatagramProtocol):
@@ -27,16 +28,27 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
     and handling UDP syslog messages.
     """
 
-    def __init__(self, decoder_type: str = "auto"):
+    def __init__(
+        self,
+        decoder_type: str = "auto",
+        allowed_ips: Optional[List[str]] = None,
+        deny_action: str = "drop",
+    ):
         """
         Initialize the UDP protocol.
 
         Args:
             decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
+            allowed_ips: List of allowed IP addresses/networks (empty list means allow all)
+            deny_action: Action to take for denied connections: "drop" or "reject"
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.udp")
         self.transport = None
         self.decoder_type = decoder_type
+        self.deny_action = deny_action
+
+        # Initialize IP filter
+        self.ip_filter = IPFilter(allowed_ips)
 
         # Connection-specific caches for the decoder
         self.connection_cache = {}
@@ -73,6 +85,22 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             addr: The address (host, port) of the sender
         """
         host, port = addr
+
+        # Check if the IP is allowed
+        if not self.ip_filter.is_allowed(host):
+            if self.deny_action == "reject" and self.transport:
+                # For UDP, we can send an ICMP port unreachable message
+                self.logger.warning(
+                    f"Rejected UDP datagram from {host}:{port} (not in allowed IPs)"
+                )
+                # We don't actually send an ICMP message as that would require raw socket access
+                # Just log the rejection
+            else:  # "drop"
+                self.logger.warning(
+                    f"Dropped UDP datagram from {host}:{port} (not in allowed IPs)"
+                )
+            return
+
         self.logger.debug(f"Received UDP datagram from {host}:{port}")
 
         # Decode the data

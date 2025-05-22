@@ -40,6 +40,8 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
         max_message_length: int = 16 * 1024,
         decoder_type: str = "auto",
         cert_verifier: Optional[CertificateVerifier] = None,
+        allowed_ips: Optional[List[str]] = None,
+        deny_action: str = "drop",
     ):
         """
         Initialize the TLS protocol.
@@ -50,12 +52,16 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             max_message_length: Maximum message length for non-transparent framing
             decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
             cert_verifier: Optional certificate verifier for client certificate validation
+            allowed_ips: List of allowed IP addresses/networks (empty list means allow all)
+            deny_action: Action to take for denied connections: "drop" or "reject"
         """
         super().__init__(
             framing_mode=framing_mode,
             end_of_message_marker=end_of_message_marker,
             max_message_length=max_message_length,
             decoder_type=decoder_type,
+            allowed_ips=allowed_ips,
+            deny_action=deny_action,
         )
         # Override the logger name for TLS
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tls")
@@ -70,11 +76,26 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
         """
         self.transport = transport
         self.peername = transport.get_extra_info("peername")
+        host, port = self.peername if self.peername else ("unknown", "unknown")
+
+        # Check if the IP is allowed
+        if host != "unknown" and not self.ip_filter.is_allowed(host):
+            if self.deny_action == "reject":
+                # Send a rejection message before closing
+                self.logger.warning(
+                    f"Rejected TLS connection from {host}:{port} (not in allowed IPs)"
+                )
+                # We can't send a proper rejection message in TLS, so just close the connection
+                transport.close()
+            else:  # "drop"
+                self.logger.warning(
+                    f"Dropped TLS connection from {host}:{port} (not in allowed IPs)"
+                )
+                transport.close()
+            return
 
         # Get SSL information
         ssl_object = transport.get_extra_info("ssl_object")
-
-        host, port = self.peername if self.peername else ("unknown", "unknown")
 
         if ssl_object:
             # Log TLS-specific information

@@ -13,7 +13,7 @@
 import asyncio
 import logging
 
-from typing import Optional
+from typing import List, Optional
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
@@ -24,6 +24,7 @@ from ziggiz_courier_pickup_syslog.protocol.framing import (
     FramingHelper,
     FramingMode,
 )
+from ziggiz_courier_pickup_syslog.protocol.ip_filter import IPFilter
 
 
 class SyslogTCPProtocol(asyncio.BufferedProtocol):
@@ -41,6 +42,8 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         end_of_message_marker: str = "\\n",
         max_message_length: int = 16 * 1024,
         decoder_type: str = "auto",
+        allowed_ips: Optional[List[str]] = None,
+        deny_action: str = "drop",
     ):
         """
         Initialize the TCP protocol.
@@ -50,11 +53,17 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             end_of_message_marker: The marker indicating end of message for non-transparent framing
             max_message_length: Maximum message length for non-transparent framing
             decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
+            allowed_ips: List of allowed IP addresses/networks (empty list means allow all)
+            deny_action: Action to take for denied connections: "drop" or "reject"
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tcp")
         self.transport = None
         self.peername = None
         self.decoder_type = decoder_type
+        self.deny_action = deny_action
+
+        # Initialize IP filter
+        self.ip_filter = IPFilter(allowed_ips)
 
         # Connection-specific caches for the decoder
         self.connection_cache = {}
@@ -95,6 +104,23 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         self.transport = transport
         self.peername = transport.get_extra_info("peername")
         host, port = self.peername if self.peername else ("unknown", "unknown")
+
+        # Check if the IP is allowed
+        if host != "unknown" and not self.ip_filter.is_allowed(host):
+            if self.deny_action == "reject":
+                # Send a rejection message before closing
+                self.logger.warning(
+                    f"Rejected TCP connection from {host}:{port} (not in allowed IPs)"
+                )
+                # We can't send a proper rejection message in TCP, so just close the connection
+                transport.close()
+            else:  # "drop"
+                self.logger.warning(
+                    f"Dropped TCP connection from {host}:{port} (not in allowed IPs)"
+                )
+                transport.close()
+            return
+
         self.logger.info(f"TCP connection established from {host}:{port}")
 
     def get_buffer(self, sizehint: int) -> bytearray:

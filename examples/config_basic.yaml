@@ -3,9 +3,14 @@
 
 # Server configuration
 host: "::"           # IPv6 address to bind to (for dual stack support)
-protocol: "tcp"      # Protocol to use: "tcp", "udp", or "unix"
+protocol: "tcp"      # Protocol to use: "tcp", "udp", "unix", or "tls"
 port: 514            # Port to listen on
 # unix_socket_path: "/var/run/ziggiz-syslog.sock"  # Path for Unix socket when protocol is "unix"
+
+# IP filtering configuration
+allowed_ips: []      # List of allowed IP addresses/networks (empty list means allow all)
+                     # Examples: ["192.168.1.0/24", "10.0.0.5", "2001:db8::/64"]
+deny_action: "drop"  # Action to take for denied connections: "drop" or "reject"
 
 # Framing configuration
 framing_mode: "auto" # Message framing mode: "auto", "transparent", or "non_transparent"

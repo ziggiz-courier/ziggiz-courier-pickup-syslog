@@ -13,7 +13,7 @@
 import asyncio
 import logging
 
-from typing import Optional
+from typing import List, Optional
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
@@ -41,6 +41,8 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
         end_of_message_marker: str = "\\n",
         max_message_length: int = 16 * 1024,
         decoder_type: str = "auto",
+        allowed_ips: Optional[List[str]] = None,  # Not used for Unix sockets
+        deny_action: str = "drop",  # Not used for Unix sockets
     ):
         """
         Initialize the Unix Stream protocol.
@@ -50,6 +52,8 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
             end_of_message_marker: The marker indicating end of message for non-transparent framing
             max_message_length: Maximum message length for non-transparent framing
             decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
+            allowed_ips: Not used for Unix sockets
+            deny_action: Not used for Unix sockets
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.unix")
         self.transport = None

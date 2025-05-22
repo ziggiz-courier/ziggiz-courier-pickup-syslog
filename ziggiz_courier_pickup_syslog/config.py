@@ -48,6 +48,14 @@ class Config(BaseModel):
         None  # Path for Unix socket when protocol is "unix"
     )
 
+    # IP filtering configuration
+    allowed_ips: List[str] = Field(
+        default_factory=list  # List of allowed IP addresses/networks (empty list means allow all)
+    )
+    deny_action: str = (
+        "drop"  # Action to take for denied connections: "drop" or "reject"
+    )
+
     # TLS configuration
     tls_certfile: Optional[str] = None  # Path to the server certificate file
     tls_keyfile: Optional[str] = None  # Path to the server private key file
@@ -135,6 +143,18 @@ class Config(BaseModel):
             if v.upper() == ver.upper():
                 return ver
         return v  # This should never be reached
+
+    @field_validator("deny_action")
+    @classmethod
+    def validate_deny_action(cls, v: str) -> str:
+        """Validate that the deny action is valid."""
+        valid_actions = ["drop", "reject"]
+        v = v.lower()
+        if v not in valid_actions:
+            raise ValueError(
+                f"Invalid deny action: {v}. Must be one of {valid_actions}"
+            )
+        return v
 
     @model_validator(mode="after")
     def validate_tls_cert_rules(self) -> "Config":
