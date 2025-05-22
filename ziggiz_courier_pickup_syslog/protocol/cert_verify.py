@@ -12,9 +12,8 @@
 # Standard library imports
 import logging
 import re
-import ssl
 
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 
 class CertificateRule:
@@ -86,36 +85,49 @@ class CertificateVerifier:
         """
         self.rules.append(rule)
 
-    def extract_cert_attributes(self, cert: ssl.SSLObject) -> Dict[str, str]:
+    def extract_cert_attributes(self, cert: Any) -> Dict[str, str]:
         """
         Extract attributes from a certificate.
 
         Args:
-            cert: The SSL certificate object
+            cert: The SSL certificate object or dictionary
 
         Returns:
             A dictionary of certificate attributes
         """
         attributes = {}
 
-        # Get the subject from the certificate
-        subject = cert.get_subject()
-        if subject:
-            # Parse the subject DN into components
-            for key, value in subject.get_components():
-                # Convert bytes to string if needed
-                key_str = key.decode("utf-8") if isinstance(key, bytes) else key
-                value_str = value.decode("utf-8") if isinstance(value, bytes) else value
-                attributes[key_str] = value_str
+        # Handle mock objects used in tests
+        if hasattr(cert, "get_subject"):
+            subject = cert.get_subject()
+            if subject and hasattr(subject, "get_components"):
+                for key, value in subject.get_components():
+                    # Convert bytes to string if needed
+                    key_str = key.decode("utf-8") if isinstance(key, bytes) else key
+                    value_str = (
+                        value.decode("utf-8") if isinstance(value, bytes) else value
+                    )
+                    attributes[key_str] = value_str
+            return attributes
+
+        # Handle dictionary certificate as returned by getpeercert()
+        if isinstance(cert, dict):
+            subject = cert.get("subject", [])
+            if subject:
+                for component in subject:
+                    for name_value in component:
+                        if len(name_value) >= 2:
+                            name, value = name_value
+                            attributes[name] = value
 
         return attributes
 
-    def verify_certificate(self, cert: ssl.SSLObject) -> bool:
+    def verify_certificate(self, ssl_obj: Any) -> bool:
         """
         Verify a certificate against the configured rules.
 
         Args:
-            cert: The SSL certificate object
+            ssl_obj: The SSL object, could be an SSLObject, certificate dict, or a mock
 
         Returns:
             True if the certificate passes all rules, False otherwise
@@ -124,8 +136,8 @@ class CertificateVerifier:
             self.logger.warning("No certificate verification rules configured")
             return True
 
-        # Extract certificate attributes
-        attributes = self.extract_cert_attributes(cert)
+        # Extract certificate attributes directly
+        attributes = self.extract_cert_attributes(ssl_obj)
         self.logger.debug(f"Certificate attributes: {attributes}")
 
         # Check each rule
@@ -156,7 +168,7 @@ class CertificateVerifier:
 
 
 def create_verifier_from_config(
-    rules_config: List[Dict[str, Union[str, bool]]],
+    rules_config: List[Dict[str, Any]],
 ) -> CertificateVerifier:
     """
     Create a certificate verifier from a configuration dictionary.
@@ -180,10 +192,14 @@ def create_verifier_from_config(
         required = rule_config.get("required", True)
 
         # Validate parameters
-        if not attribute:
-            raise ValueError("Certificate rule must specify an 'attribute'")
-        if not pattern:
-            raise ValueError("Certificate rule must specify a 'pattern'")
+        if not attribute or not isinstance(attribute, str):
+            raise ValueError("Certificate rule must specify an 'attribute' as a string")
+        if not pattern or not isinstance(pattern, str):
+            raise ValueError("Certificate rule must specify a 'pattern' as a string")
+
+        # Ensure required is a boolean
+        if not isinstance(required, bool):
+            required = bool(required)
 
         # Create and add the rule
         rule = CertificateRule(
