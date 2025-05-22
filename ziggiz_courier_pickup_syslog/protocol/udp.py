@@ -13,7 +13,7 @@
 import asyncio
 import logging
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
@@ -51,8 +51,8 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         self.ip_filter = IPFilter(allowed_ips)
 
         # Connection-specific caches for the decoder
-        self.connection_cache = {}
-        self.event_parsing_cache = {}
+        self.connection_cache: Dict[Any, Any] = {}
+        self.event_parsing_cache: Dict[Any, Any] = {}
 
     def connection_made(self, transport) -> None:
         """

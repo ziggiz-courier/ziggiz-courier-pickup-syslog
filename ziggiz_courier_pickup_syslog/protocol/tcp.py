@@ -13,7 +13,7 @@
 import asyncio
 import logging
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
@@ -66,8 +66,8 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         self.ip_filter = IPFilter(allowed_ips)
 
         # Connection-specific caches for the decoder
-        self.connection_cache = {}
-        self.event_parsing_cache = {}
+        self.connection_cache: Dict[Any, Any] = {}
+        self.event_parsing_cache: Dict[Any, Any] = {}
 
         # Create the framing helper
         try:
@@ -90,7 +90,7 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             self.framing_helper = FramingHelper(logger=self.logger)
 
         # This is the buffer provided by the transport for reading incoming data
-        self._read_buffer = None
+        self._read_buffer: Optional[bytearray] = None
         # Maximum size to allocate for the incoming buffer
         self.max_buffer_size = 65536  # 64KB
 
@@ -149,6 +149,9 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         self.logger.debug(f"Received {nbytes} bytes of TCP data from {host}:{port}")
 
         # Add the received data to the framing helper
+        if self._read_buffer is None:
+            self.logger.error("Buffer is None in buffer_updated")
+            return
         data = self._read_buffer[:nbytes]
         try:
             # Add data to the helper and extract messages

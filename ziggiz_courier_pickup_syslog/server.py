@@ -15,10 +15,10 @@ import logging
 import os
 import ssl
 
+from asyncio import AbstractEventLoop, AbstractServer, DatagramTransport
 from typing import Optional, Tuple
 
 # Local/package imports
-# Local imports
 from ziggiz_courier_pickup_syslog.config import Config
 from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
 from ziggiz_courier_pickup_syslog.protocol.tls import (
@@ -36,7 +36,7 @@ class SyslogServer:
     based on the provided configuration.
     """
 
-    def __init__(self, config: Config = None):
+    def __init__(self, config: Optional[Config] = None):
         """
         Initialize the syslog server.
 
@@ -44,14 +44,14 @@ class SyslogServer:
             config: The configuration object
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.server")
-        self.config = config or Config()
-        self.loop = None
-        self.udp_transport = None
-        self.udp_protocol = None
-        self.tcp_server = None
-        self.unix_server = None
-        self.tls_server = None
-        self.tls_context = None
+        self.config: Config = config if config is not None else Config()
+        self.loop: Optional[AbstractEventLoop] = None
+        self.udp_transport: Optional[DatagramTransport] = None
+        self.udp_protocol: Optional[SyslogUDPProtocol] = None
+        self.tcp_server: Optional[AbstractServer] = None
+        self.unix_server: Optional[AbstractServer] = None
+        self.tls_server: Optional[AbstractServer] = None
+        self.tls_context: Optional[ssl.SSLContext] = None
 
     async def start(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         """
@@ -131,6 +131,8 @@ class SyslogServer:
                     deny_action=self.config.deny_action,
                 )
 
+            if self.loop is None:
+                raise RuntimeError("Event loop is not initialized")
             transport, protocol = await self.loop.create_datagram_endpoint(
                 protocol_factory, local_addr=(host, port)
             )
@@ -166,6 +168,8 @@ class SyslogServer:
                     deny_action=self.config.deny_action,
                 )
 
+            if self.loop is None:
+                raise RuntimeError("Event loop is not initialized")
             server = await self.loop.create_server(protocol_factory, host, port)
             self.logger.info(
                 f"TCP server listening on {host}:{port} with framing mode: {self.config.framing_mode}"
@@ -208,6 +212,8 @@ class SyslogServer:
                     # Unix sockets don't need IP filtering
                 )
 
+            if self.loop is None:
+                raise RuntimeError("Event loop is not initialized")
             server = await self.loop.create_unix_server(protocol_factory, socket_path)
             self.logger.info(
                 f"Unix Stream server listening on {socket_path} with framing mode: {self.config.framing_mode}"
@@ -257,10 +263,16 @@ class SyslogServer:
                     f"Using {len(cert_rules)} certificate verification rules"
                 )
 
+            # Validate certfile and keyfile (they should have been checked earlier, but double check)
+            if not certfile:
+                raise ValueError("Certificate file is required for TLS server")
+            if not keyfile:
+                raise ValueError("Key file is required for TLS server")
+
             # Create SSL context and certificate verifier
             ssl_context, cert_verifier = TLSContextBuilder.create_server_context(
-                certfile=certfile,
-                keyfile=keyfile,
+                certfile=certfile,  # type: ignore # We've validated it's not None
+                keyfile=keyfile,  # type: ignore # We've validated it's not None
                 ca_certs=ca_certs,
                 verify_client=verify_client,
                 min_version=min_version,
@@ -281,6 +293,8 @@ class SyslogServer:
                 )
 
             # Create the server
+            if self.loop is None:
+                raise RuntimeError("Event loop is not initialized")
             server = await self.loop.create_server(
                 protocol_factory,
                 host,

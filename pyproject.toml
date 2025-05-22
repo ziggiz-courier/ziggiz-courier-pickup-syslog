@@ -55,6 +55,21 @@ import_heading_firstparty = "Local/package imports"
 no_lines_before = ["STDLIB", "LOCALFOLDER"]
 lines_between_types = 1
 
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # We'll enable this incrementally
+disallow_incomplete_defs = false  # We'll enable this incrementally
+check_untyped_defs = true
+disallow_untyped_decorators = false  # We'll enable this incrementally
+no_implicit_optional = true
+strict_optional = true
+
+[[tool.mypy.overrides]]
+module = "ziggiz_courier_handler_core.*"
+ignore_missing_imports = true
+
 [tool.semantic_release]
 version_variable = ["pyproject.toml:version"]
 version_toml = ["pyproject.toml:tool.poetry.version"]
