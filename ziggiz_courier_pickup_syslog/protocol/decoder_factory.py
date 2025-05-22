@@ -21,25 +21,17 @@
 # Standard library imports
 from typing import Dict, Optional
 
-try:
-    # Third-party imports
-    from ziggiz_courier_handler_core.decoders import (
-        SyslogRFC3164Decoder,
-        SyslogRFC5424Decoder,
-        SyslogRFCBaseDecoder,
-        UnknownSyslogDecoder,
-    )
-    from ziggiz_courier_handler_core.models.event_envelope_base import (
-        EventEnvelopeBaseModel,
-    )
+# Third-party imports
+from ziggiz_courier_handler_core.decoders import (
+    SyslogRFC3164Decoder,
+    SyslogRFC5424Decoder,
+    UnknownSyslogDecoder,
+)
 
-    DECODERS_AVAILABLE = True
-except ImportError:
-    DECODERS_AVAILABLE = False
-
-    # Define a dummy type for type hinting when imports fail
-    class EventEnvelopeBaseModel:
-        """Dummy class used when ziggiz_courier_handler_core package is not available."""
+# Import the envelope model for docstring references
+from ziggiz_courier_handler_core.models.event_envelope_base import (  # noqa
+    EventEnvelopeBaseModel,
+)
 
 
 class DecoderFactory:
@@ -94,34 +86,32 @@ class DecoderFactory:
             ImportError: If ziggiz_courier_handler_core is not available
             ValueError: If an invalid decoder type is specified
         """
-        if not DECODERS_AVAILABLE:
-            raise ImportError(
-                "ziggiz_courier_handler_core package not available. "
-                "Please install it to use syslog message decoders."
-            )
 
+        # Ensure caches are dictionaries, not None
+        conn_cache = connection_cache if connection_cache is not None else {}
+        event_cache = event_parsing_cache if event_parsing_cache is not None else {}
         decoder_type = decoder_type.lower()
 
         if decoder_type == "auto":
             return UnknownSyslogDecoder(
-                connection_cache=connection_cache,
-                event_parsing_cache=event_parsing_cache,
+                connection_cache=conn_cache,
+                event_parsing_cache=event_cache,
             )
         elif decoder_type == "rfc3164":
             return SyslogRFC3164Decoder(
-                connection_cache=connection_cache,
-                event_parsing_cache=event_parsing_cache,
+                connection_cache=conn_cache,
+                event_parsing_cache=event_cache,
             )
         elif decoder_type == "rfc5424":
             return SyslogRFC5424Decoder(
-                connection_cache=connection_cache,
-                event_parsing_cache=event_parsing_cache,
+                connection_cache=conn_cache,
+                event_parsing_cache=event_cache,
             )
-        elif decoder_type == "base":
-            return SyslogRFCBaseDecoder(
-                connection_cache=connection_cache,
-                event_parsing_cache=event_parsing_cache,
-            )
+        # elif decoder_type == "base":
+        #     return SyslogRFCBaseDecoder(
+        #         connection_cache=conn_cache,
+        #         event_parsing_cache=event_cache,
+        #     )
         else:
             raise ValueError(
                 f"Invalid decoder type: {decoder_type}. "
@@ -168,9 +158,12 @@ class DecoderFactory:
             ImportError: If ziggiz_courier_handler_core is not available
             ValueError: If an invalid decoder type is specified
         """
+        # Ensure event_parsing_cache is a dictionary, not None
+        event_cache = event_parsing_cache if event_parsing_cache is not None else {}
+        conn_cache = connection_cache if connection_cache is not None else {}
         decoder = DecoderFactory.create_decoder(
             decoder_type,
-            connection_cache=connection_cache,
-            event_parsing_cache=event_parsing_cache,
+            connection_cache=conn_cache,
+            event_parsing_cache=event_cache,
         )
-        return decoder.decode(message, parsing_cache=event_parsing_cache)
+        return decoder.decode(message)

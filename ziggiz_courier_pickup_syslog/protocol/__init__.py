@@ -8,13 +8,3 @@
 # compliance with the License. You may obtain a copy of the License at:
 # https://github.com/ziggiz-courier/ziggiz-courier-core-data-processing/blob/main/LICENSE
 # Protocol package for handling syslog messages
-
-# Local/package imports
-from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
-from ziggiz_courier_pickup_syslog.protocol.tls import (
-    SyslogTLSProtocol,
-    TLSContextBuilder,
-    create_tls_server,
-)
-from ziggiz_courier_pickup_syslog.protocol.udp import SyslogUDPProtocol
-from ziggiz_courier_pickup_syslog.protocol.unix import SyslogUnixProtocol
