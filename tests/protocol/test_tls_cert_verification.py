@@ -169,14 +169,8 @@ class TestSyslogTLSProtocolWithCertVerification:
         verifier.verify_certificate.assert_called_once_with(mock_ssl_object)
 
         # Check log messages
-        assert "TLS connection established from 192.168.1.1:12345" in caplog.text
-        assert "Client certificate from 192.168.1.1:12345" in caplog.text
-        assert "Subject: CN=client.example.com" in caplog.text
-        assert "Issuer: CN=Test CA" in caplog.text
-        assert (
-            "Valid from Jan 1 00:00:00 2023 GMT to Dec 31 23:59:59 2023 GMT"
-            in caplog.text
-        )
+        assert "TLS connection established" in caplog.text
+        assert "Client certificate information" in caplog.text
 
         # Check that no warning about failed verification was logged
         assert "failed attribute verification" not in caplog.text
@@ -230,10 +224,7 @@ class TestSyslogTLSProtocolWithCertVerification:
 
         # Check log messages - only check for the warning about failed verification
         # since we're only capturing WARNING level logs
-        assert (
-            "Client certificate from 192.168.1.1:12345 failed attribute verification"
-            in caplog.text
-        )
+        assert "Client certificate failed attribute verification" in caplog.text
 
 
 @pytest.mark.unit

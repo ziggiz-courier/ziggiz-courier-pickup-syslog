@@ -19,6 +19,8 @@
 # Each decoder instance is scoped to a specific connection to ensure thread-safety.
 
 # Standard library imports
+import logging
+
 from typing import Dict, Optional
 
 # Third-party imports
@@ -50,6 +52,9 @@ class DecoderFactory:
     Each decoder is instantiated per-connection to ensure thread safety, as they maintain
     connection-specific caches.
     """
+
+    # Class logger instance
+    logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.decoder_factory")
 
     @staticmethod
     def create_decoder(
@@ -93,27 +98,55 @@ class DecoderFactory:
         event_cache = event_parsing_cache if event_parsing_cache is not None else {}
         decoder_type = decoder_type.lower()
 
+        extra = {
+            "decoder_type": decoder_type,
+            "has_connection_cache": connection_cache is not None,
+            "has_event_parsing_cache": event_parsing_cache is not None,
+        }
+
+        DecoderFactory.logger.debug("Creating decoder instance", extra=extra)
+
         if decoder_type == "auto":
-            return UnknownSyslogDecoder(
+            decoder = UnknownSyslogDecoder(
                 connection_cache=conn_cache,
                 event_parsing_cache=event_cache,
             )
+            DecoderFactory.logger.debug(
+                "Created UnknownSyslogDecoder instance", extra=extra
+            )
+            return decoder
         elif decoder_type == "rfc3164":
-            return SyslogRFC3164Decoder(
+            decoder = SyslogRFC3164Decoder(
                 connection_cache=conn_cache,
                 event_parsing_cache=event_cache,
             )
+            DecoderFactory.logger.debug(
+                "Created SyslogRFC3164Decoder instance", extra=extra
+            )
+            return decoder
         elif decoder_type == "rfc5424":
-            return SyslogRFC5424Decoder(
+            decoder = SyslogRFC5424Decoder(
                 connection_cache=conn_cache,
                 event_parsing_cache=event_cache,
             )
+            DecoderFactory.logger.debug(
+                "Created SyslogRFC5424Decoder instance", extra=extra
+            )
+            return decoder
         elif decoder_type == "base":
-            return SyslogRFCBaseDecoder(
+            decoder = SyslogRFCBaseDecoder(
                 connection_cache=conn_cache,
                 event_parsing_cache=event_cache,
             )
+            DecoderFactory.logger.debug(
+                "Created SyslogRFCBaseDecoder instance", extra=extra
+            )
+            return decoder
         else:
+            DecoderFactory.logger.error(
+                "Invalid decoder type specified",
+                extra={"decoder_type": decoder_type, "error": "invalid_type"},
+            )
             raise ValueError(
                 f"Invalid decoder type: {decoder_type}. "
                 "Must be one of: auto, rfc3164, rfc5424, base"
@@ -162,9 +195,35 @@ class DecoderFactory:
         # Ensure event_parsing_cache is a dictionary, not None
         event_cache = event_parsing_cache if event_parsing_cache is not None else {}
         conn_cache = connection_cache if connection_cache is not None else {}
-        decoder = DecoderFactory.create_decoder(
-            decoder_type,
-            connection_cache=conn_cache,
-            event_parsing_cache=event_cache,
-        )
-        return decoder.decode(message)
+
+        # Create structured logging context
+        extra = {
+            "decoder_type": decoder_type,
+            "message_length": len(message) if message else 0,
+            "has_connection_cache": connection_cache is not None,
+            "has_event_parsing_cache": event_parsing_cache is not None,
+        }
+
+        DecoderFactory.logger.debug("Decoding syslog message", extra=extra)
+
+        try:
+            decoder = DecoderFactory.create_decoder(
+                decoder_type,
+                connection_cache=conn_cache,
+                event_parsing_cache=event_cache,
+            )
+            result = decoder.decode(message)
+
+            # Log successful decoding with additional context
+            DecoderFactory.logger.debug(
+                "Successfully decoded syslog message",
+                extra={**extra, "decode_success": True},
+            )
+            return result
+        except Exception as e:
+            # Log failed decoding with error details
+            DecoderFactory.logger.error(
+                "Failed to decode syslog message",
+                extra={**extra, "decode_success": False, "error": str(e)},
+            )
+            raise

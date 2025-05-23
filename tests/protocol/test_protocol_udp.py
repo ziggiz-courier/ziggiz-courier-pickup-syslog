@@ -53,7 +53,7 @@ class TestSyslogUDPProtocol:
 
         # Check the transport is set and log message is created
         assert protocol.transport == mock_transport
-        assert "UDP server started on 127.0.0.1:514" in caplog.text
+        assert "UDP server started on address" in caplog.text
 
     @pytest.mark.unit
     def test_connection_made_ipv6(self, caplog):
@@ -73,7 +73,7 @@ class TestSyslogUDPProtocol:
 
         # Check the transport is set and log message is created
         assert protocol.transport == mock_transport
-        assert "UDP server started on ::1:514" in caplog.text
+        assert "UDP server started on address" in caplog.text
 
     @pytest.mark.unit
     def test_connection_made_no_socket_info(self, caplog):
@@ -114,10 +114,7 @@ class TestSyslogUDPProtocol:
         # Check that the decoder was called
         mock_decode.assert_called_once()
         # Check that the message was logged with the correct type
-        assert (
-            "Syslog message (EventEnvelopeBaseModel) from 192.168.1.1:54321"
-            in caplog.text
-        )
+        assert "Syslog message received" in caplog.text
 
     @pytest.mark.unit
     @patch(
@@ -142,10 +139,7 @@ class TestSyslogUDPProtocol:
         # Check that the decoder was called
         mock_decode.assert_called_once()
         # Check that the message was logged with the correct type
-        assert (
-            "Syslog message (EventEnvelopeBaseModel) from 192.168.1.2:54322"
-            in caplog.text
-        )
+        assert "Syslog message received" in caplog.text
 
     @pytest.mark.unit
     @patch(
@@ -169,10 +163,7 @@ class TestSyslogUDPProtocol:
         # Check that the decoder was called
         mock_decode.assert_called_once()
         # Check that the message was logged with the IPv6 address
-        assert (
-            "Syslog message (EventEnvelopeBaseModel) from 2001:db8::1:54321"
-            in caplog.text
-        )
+        assert "Syslog message received" in caplog.text
 
     @pytest.mark.unit
     @patch(
@@ -193,12 +184,9 @@ class TestSyslogUDPProtocol:
         protocol.datagram_received(data, addr)
 
         # Check that the warning was logged
-        assert (
-            "Failed to parse syslog message from 192.168.1.3:54323: Invalid syslog format"
-            in caplog.text
-        )
+        assert "Failed to parse syslog message" in caplog.text
         # Check that the raw message was also logged (this is logged at INFO level)
-        assert "Raw syslog message from 192.168.1.3:54323" in caplog.text
+        assert "Raw syslog message" in caplog.text
 
     @pytest.mark.unit
     def test_datagram_received_import_error(self, caplog):
@@ -220,7 +208,7 @@ class TestSyslogUDPProtocol:
             protocol.datagram_received(data, addr)
 
             # Check that the message was logged without type information
-            assert "Syslog message from 192.168.1.4:54324" in caplog.text
+            assert "Syslog message received" in caplog.text
             assert "EventEnvelopeBaseModel" not in caplog.text
 
     @pytest.mark.unit
@@ -234,7 +222,7 @@ class TestSyslogUDPProtocol:
         protocol.error_received(test_exception)
 
         # Check that the error is properly logged
-        assert "Error in UDP server: Test error" in caplog.text
+        assert "Error in UDP server" in caplog.text
 
     @pytest.mark.unit
     def test_connection_lost_with_exception(self, caplog):
@@ -247,9 +235,7 @@ class TestSyslogUDPProtocol:
         protocol.connection_lost(test_exception)
 
         # Check that the warning is properly logged
-        assert (
-            "UDP server connection closed with error: Connection error" in caplog.text
-        )
+        assert "UDP server connection closed with error" in caplog.text
 
     @pytest.mark.unit
     def test_connection_lost_without_exception(self, caplog):

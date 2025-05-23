@@ -197,24 +197,24 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                                 "msg_type": msg_type,
                                 "host": host,
                                 "port": port,
-                                "message": message,
+                                "log_msg": message,
                             },
                         )
                     except ImportError:
                         # If decoder is not available, just log the raw message
                         self.logger.info(
                             "Syslog message received",
-                            extra={"host": host, "port": port, "message": message},
+                            extra={"host": host, "port": port, "log_msg": message},
                         )
                     except Exception as e:
                         # Log any parsing errors but don't fail
                         self.logger.warning(
                             "Failed to parse syslog message",
-                            extra={"host": host, "port": port, "error": e},
+                            extra={"host": host, "port": port, "error": str(e)},
                         )
                         self.logger.info(
                             "Raw syslog message",
-                            extra={"host": host, "port": port, "message": message},
+                            extra={"host": host, "port": port, "log_msg": message},
                         )
         except FramingDetectionError as e:
             self.logger.error(

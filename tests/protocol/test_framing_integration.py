@@ -85,7 +85,7 @@ class TestProtocolFramingIntegration:
 
         # Check that the message was processed
         tcp_protocol.logger.info.assert_called_once()
-        assert "Hello World" in tcp_protocol.logger.info.call_args[0][0]
+        assert tcp_protocol.logger.info.call_args[0][0] == "Syslog message received"
 
     def test_unix_protocol_message_processing(self):
         """Test that Unix protocol processes messages correctly."""
@@ -101,7 +101,7 @@ class TestProtocolFramingIntegration:
 
         # Check that the message was processed
         unix_protocol.logger.info.assert_called_once()
-        assert "Hello World" in unix_protocol.logger.info.call_args[0][0]
+        assert unix_protocol.logger.info.call_args[0][0] == "Syslog message received"
 
     @pytest.mark.asyncio
     async def test_server_protocol_factory(self):

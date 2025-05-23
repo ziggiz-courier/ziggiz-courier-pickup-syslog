@@ -74,7 +74,7 @@ class TestSyslogTCPProtocol:
         assert protocol.transport == mock_transport
         assert protocol.peername == ("192.168.1.1", 12345)
         # Check log message
-        assert "TCP connection established from 192.168.1.1:12345" in caplog.text
+        assert "TCP connection established" in caplog.text
 
     @pytest.mark.unit
     def test_connection_made_unknown_peer(self, caplog):
@@ -92,7 +92,7 @@ class TestSyslogTCPProtocol:
         # Check the transport is set and log message is created
         assert protocol.transport == mock_transport
         assert protocol.peername is None
-        assert "TCP connection established from unknown:unknown" in caplog.text
+        assert "TCP connection established" in caplog.text
 
     @pytest.mark.unit
     def test_get_buffer(self):
@@ -136,10 +136,7 @@ class TestSyslogTCPProtocol:
         # Check that the decoder was called
         mock_decode.assert_called_once()
         # Check that the message was logged
-        assert (
-            "Syslog message (EventEnvelopeBaseModel) from 192.168.1.1:12345"
-            in caplog.text
-        )
+        assert "Syslog message received" in caplog.text
 
     @pytest.mark.unit
     def test_buffer_updated_framing_error(self, caplog):
@@ -161,7 +158,7 @@ class TestSyslogTCPProtocol:
         protocol.buffer_updated(len(test_data))
 
         # Check that the error was logged
-        assert "Framing error from 192.168.1.1:12345: Test framing error" in caplog.text
+        assert "Framing error" in caplog.text
 
         # Note: The "Closing connection due to framing error" message is logged at WARNING level
         # but we set the caplog level to ERROR, so we won't see it.
@@ -189,7 +186,7 @@ class TestSyslogTCPProtocol:
         protocol.framing_helper.extract_messages = original_extract
 
         # Check that EOF was logged
-        assert "EOF received from 192.168.1.1:12345" in caplog.text
+        assert "EOF received" in caplog.text
         # Check return value (should be False to close the transport)
         assert result is False
 
@@ -215,7 +212,6 @@ class TestSyslogTCPProtocol:
 
         # Check that warning about unparsed data was logged
         assert "Discarding" in caplog.text
-        assert "bytes of unparsed data from 192.168.1.1:12345" in caplog.text
 
     @pytest.mark.unit
     def test_connection_lost_with_exception(self, caplog):
@@ -230,10 +226,7 @@ class TestSyslogTCPProtocol:
         protocol.connection_lost(test_exception)
 
         # Check that the warning is properly logged
-        assert (
-            "TCP connection from 192.168.1.1:12345 closed with error: Connection error"
-            in caplog.text
-        )
+        assert "TCP connection closed with error" in caplog.text
         # Check that resources are cleaned up
         assert protocol._read_buffer is None
         assert protocol.transport is None
@@ -250,7 +243,7 @@ class TestSyslogTCPProtocol:
         protocol.connection_lost(None)
 
         # Check that the info is properly logged
-        assert "TCP connection from 192.168.1.1:12345 closed" in caplog.text
+        assert "TCP connection closed" in caplog.text
         # Check that resources are cleaned up
         assert protocol._read_buffer is None
         assert protocol.transport is None
@@ -290,4 +283,11 @@ class TestSyslogTCPProtocol:
         protocol.buffer_updated(len(large_message))
 
         # Check debug log for buffer size
-        assert "Received 200 bytes of TCP data from 192.168.1.1:12345" in caplog.text
+        assert "Received TCP data" in caplog.text
+        # Check that the entries in the structured log contain the correct values
+        for record in caplog.records:
+            if "Received TCP data" in record.message:
+                assert record.nbytes == 200
+                assert record.host == "192.168.1.1"
+                assert record.port == 12345
+                break
