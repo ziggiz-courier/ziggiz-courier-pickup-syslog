@@ -163,31 +163,30 @@ async def test_buffer_updated(unix_protocol):
 
 
 @pytest.mark.unit
-@patch(
-    "ziggiz_courier_pickup_syslog.protocol.decoder_factory.DecoderFactory.decode_message"
-)
-def test_buffer_updated_with_decoder(mock_decode, caplog):
+def test_buffer_updated_with_decoder(caplog):
     """Test buffer_updated method with decoder."""
     caplog.set_level(logging.INFO)
     protocol = SyslogUnixProtocol()
     protocol.peername = "/var/run/syslog.sock"
 
-    # Setup mock decoder response
-    mock_decoded = MagicMock()
-    mock_decoded.__class__.__name__ = "EventEnvelopeBaseModel"
-    mock_decode.return_value = mock_decoded
+    # Patch the decoder's decode method
+    with patch.object(protocol.decoder, "decode") as mock_decode:
+        # Setup mock decoder response
+        mock_decoded = MagicMock()
+        mock_decoded.__class__.__name__ = "EventEnvelopeBaseModel"
+        mock_decode.return_value = mock_decoded
 
-    # Create test data with a complete message
-    test_data = b"<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8\n"
-    protocol._read_buffer = bytearray(test_data)
+        # Create test data with a complete message
+        test_data = b"<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8\n"
+        protocol._read_buffer = bytearray(test_data)
 
-    # Call buffer_updated
-    protocol.buffer_updated(len(test_data))
+        # Call buffer_updated
+        protocol.buffer_updated(len(test_data))
 
-    # Check that the decoder was called
-    mock_decode.assert_called_once()
-    # Check that the message was logged
-    assert "Syslog message received" in caplog.text
+        # Check that the decoder was called
+        mock_decode.assert_called_once()
+        # Check that the message was logged
+        assert "Syslog message received" in caplog.text
 
 
 @pytest.mark.unit

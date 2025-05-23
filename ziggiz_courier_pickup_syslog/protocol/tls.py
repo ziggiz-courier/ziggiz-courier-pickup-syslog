@@ -14,7 +14,7 @@ import asyncio
 import logging
 import ssl
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.cert_verify import (
@@ -66,6 +66,8 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             deny_action=deny_action,
             enable_model_json_output=enable_model_json_output,
         )
+        # Event parsing cache for test compatibility (TLS)
+        self.event_parsing_cache: Dict[Any, Any] = {}
         # Override the logger name for TLS
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tls")
         self.cert_verifier = cert_verifier

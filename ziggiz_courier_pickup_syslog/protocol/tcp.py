@@ -68,9 +68,15 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         # Initialize IP filter
         self.ip_filter = IPFilter(allowed_ips)
 
-        # Connection-specific caches for the decoder
+        # Connection-specific cache for the decoder
         self.connection_cache: Dict[Any, Any] = {}
+        # Event parsing cache for test compatibility
         self.event_parsing_cache: Dict[Any, Any] = {}
+        # Create a decoder instance scoped to this connection
+        self.decoder = DecoderFactory.create_decoder(
+            self.decoder_type,
+            connection_cache=self.connection_cache,
+        )
 
         # Create the framing helper
         try:
@@ -184,34 +190,64 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                 if msg:  # Skip empty messages
                     message = msg.decode("utf-8", errors="replace")
 
-                    # Try to use the decoder if ziggiz_courier_handler_core is available
                     try:
-                        decoded_message = DecoderFactory.decode_message(
-                            self.decoder_type,
-                            message,
-                            connection_cache=self.connection_cache,
-                            event_parsing_cache=self.event_parsing_cache,
-                            enable_model_json_output=self.enable_model_json_output,
-                        )
-                        # Log the decoded message with its type
-                        msg_type = type(decoded_message).__name__
-                        self.logger.info(
-                            "Syslog message received",
-                            extra={
-                                "msg_type": msg_type,
-                                "host": host,
-                                "port": port,
-                                "log_msg": message,
-                            },
-                        )
+                        decoded_message = self.decoder.decode(message)
+                        if decoded_message is not None:
+                            # Optionally log JSON output if enabled
+                            if self.enable_model_json_output:
+                                try:
+                                    if hasattr(decoded_message, "model_dump_json"):
+                                        model_json = decoded_message.model_dump_json(
+                                            indent=2
+                                        )
+                                    elif hasattr(decoded_message, "json"):
+                                        model_json = decoded_message.json(indent=2)
+                                    elif hasattr(decoded_message, "dict") or hasattr(
+                                        decoded_message, "model_dump"
+                                    ):
+                                        dump_method = getattr(
+                                            decoded_message,
+                                            "model_dump",
+                                            getattr(decoded_message, "dict", None),
+                                        )
+                                        if dump_method:
+                                            model_dict = dump_method()
+                                            # Standard library imports
+                                            import json
+
+                                            model_json = json.dumps(
+                                                model_dict, default=str, indent=2
+                                            )
+                                        else:
+                                            model_json = None
+                                    else:
+                                        model_json = None
+                                    if model_json:
+                                        self.logger.info(
+                                            "Decoded model JSON representation:",
+                                            extra={"decoded_model_json": model_json},
+                                        )
+                                except Exception as json_err:
+                                    self.logger.warning(
+                                        "Failed to create JSON representation of decoded model",
+                                        extra={"error": str(json_err)},
+                                    )
+                            msg_type = type(decoded_message).__name__
+                            self.logger.info(
+                                "Syslog message received",
+                                extra={
+                                    "msg_type": msg_type,
+                                    "host": host,
+                                    "port": port,
+                                    "log_msg": message,
+                                },
+                            )
                     except ImportError:
-                        # If decoder is not available, just log the raw message
                         self.logger.info(
                             "Syslog message received",
                             extra={"host": host, "port": port, "log_msg": message},
                         )
                     except Exception as e:
-                        # Log any parsing errors but don't fail
                         self.logger.warning(
                             "Failed to parse syslog message",
                             extra={"host": host, "port": port, "error": str(e)},
@@ -250,34 +286,63 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                 if msg:  # Skip empty messages
                     message = msg.decode("utf-8", errors="replace")
 
-                    # Try to use the decoder if ziggiz_courier_handler_core is available
                     try:
-                        decoded_message = DecoderFactory.decode_message(
-                            self.decoder_type,
-                            message,
-                            connection_cache=self.connection_cache,
-                            event_parsing_cache=self.event_parsing_cache,
-                            enable_model_json_output=self.enable_model_json_output,
-                        )
-                        # Log the decoded message with its type
-                        msg_type = type(decoded_message).__name__
-                        self.logger.info(
-                            "Final syslog message",
-                            extra={
-                                "msg_type": msg_type,
-                                "host": host,
-                                "port": port,
-                                "message": message,
-                            },
-                        )
+                        decoded_message = self.decoder.decode(message)
+                        if decoded_message is not None:
+                            if self.enable_model_json_output:
+                                try:
+                                    if hasattr(decoded_message, "model_dump_json"):
+                                        model_json = decoded_message.model_dump_json(
+                                            indent=2
+                                        )
+                                    elif hasattr(decoded_message, "json"):
+                                        model_json = decoded_message.json(indent=2)
+                                    elif hasattr(decoded_message, "dict") or hasattr(
+                                        decoded_message, "model_dump"
+                                    ):
+                                        dump_method = getattr(
+                                            decoded_message,
+                                            "model_dump",
+                                            getattr(decoded_message, "dict", None),
+                                        )
+                                        if dump_method:
+                                            model_dict = dump_method()
+                                            # Standard library imports
+                                            import json
+
+                                            model_json = json.dumps(
+                                                model_dict, default=str, indent=2
+                                            )
+                                        else:
+                                            model_json = None
+                                    else:
+                                        model_json = None
+                                    if model_json:
+                                        self.logger.info(
+                                            "Decoded model JSON representation:",
+                                            extra={"decoded_model_json": model_json},
+                                        )
+                                except Exception as json_err:
+                                    self.logger.warning(
+                                        "Failed to create JSON representation of decoded model",
+                                        extra={"error": str(json_err)},
+                                    )
+                            msg_type = type(decoded_message).__name__
+                            self.logger.info(
+                                "Final syslog message",
+                                extra={
+                                    "msg_type": msg_type,
+                                    "host": host,
+                                    "port": port,
+                                    "message": message,
+                                },
+                            )
                     except ImportError:
-                        # If decoder is not available, just log the raw message
                         self.logger.info(
                             "Final syslog message",
                             extra={"host": host, "port": port, "message": message},
                         )
                     except Exception as e:
-                        # Log any parsing errors but don't fail
                         self.logger.warning(
                             "Failed to parse final syslog message",
                             extra={"host": host, "port": port, "error": e},

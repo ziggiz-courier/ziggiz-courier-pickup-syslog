@@ -199,11 +199,9 @@ class TestUDPProtocolIPFiltering(unittest.TestCase):
         # Set up the IP filter to allow the IP
         self.mock_ip_filter.is_allowed.return_value = True
 
-        # Call datagram_received
+        # Patch the decoder's decode method
         with patch("logging.Logger.debug") as mock_debug:
-            with patch(
-                "ziggiz_courier_pickup_syslog.protocol.decoder_factory.DecoderFactory.decode_message"
-            ) as mock_decode:
+            with patch.object(protocol.decoder, "decode") as mock_decode:
                 protocol.datagram_received(b"test message", ("192.168.1.1", 12345))
 
                 # Verify that the datagram was processed
