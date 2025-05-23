@@ -51,7 +51,7 @@ class DecoderFactory:
 
     # Custom formatter to show extra dictionary in logs
     class ExtraInfoFormatter(logging.Formatter):
-        def format(self, record):
+        def format(self, record: logging.LogRecord) -> str:
             formatted_message = super().format(record)
 
             # Extract all non-standard attributes as extra data
@@ -290,9 +290,9 @@ class DecoderFactory:
                 try:
                     # Different models might have different serialization methods
                     if hasattr(result, "model_dump_json"):  # Pydantic v2 style
-                        model_json = result.model_dump_json(indent=2)  # type: ignore
+                        model_json = result.model_dump_json(indent=2)
                     elif hasattr(result, "json"):  # Pydantic v1 style
-                        model_json = result.json(indent=2)  # type: ignore
+                        model_json = result.json(indent=2)
                     elif hasattr(result, "dict") or hasattr(
                         result, "model_dump"
                     ):  # Dict conversion fallback
@@ -300,7 +300,7 @@ class DecoderFactory:
                             result, "model_dump", getattr(result, "dict", None)
                         )
                         if dump_method:
-                            model_dict = dump_method()  # type: ignore
+                            model_dict = dump_method()
                             model_json = json.dumps(model_dict, default=str, indent=2)
                         else:
                             model_json = json.dumps(
