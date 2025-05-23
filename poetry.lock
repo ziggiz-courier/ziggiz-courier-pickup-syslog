@@ -1399,7 +1399,7 @@ files = [
 
 [[package]]
 name = "ziggiz-courier-handler-core"
-version = "0.2.1"
+version = "0.2.2"
 description = "Data processing library for decoding, transforming, and encoding data"
 optional = false
 python-versions = ">=3.9,<3.14"
@@ -1417,8 +1417,8 @@ xmltodict = "^0.14"
 [package.source]
 type = "git"
 url = "https://github.com/ziggiz-courier/ziggiz-courier-handler-core.git"
-reference = "v0.2.1"
-resolved_reference = "6087676dc67467b25fd4a6f36f71c4698f676ed1"
+reference = "v0.2.2"
+resolved_reference = "b2b9e4bc35eba0dc89be787ec4ce4d1f59d8809f"
 
 [[package]]
 name = "zipp"
@@ -1443,4 +1443,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<3.14"
-content-hash = "bb696c8ffcce66782b7b5c71b4bc0a48e04fe73468dfb5f0232656081296c37f"
+content-hash = "08067e53653597fb0259dadc1154263e908cc3551720f157c1e58b13e3fc6079"
