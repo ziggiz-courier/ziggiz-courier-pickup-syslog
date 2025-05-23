@@ -25,7 +25,8 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
     UDP Protocol implementation for handling syslog messages.
 
     This class implements the asyncio DatagramProtocol for receiving
-    and handling UDP syslog messages.
+    and handling UDP syslog messages. It supports handling of large datagrams
+    that may require IP-level fragmentation and reassembly.
     """
 
     def __init__(
@@ -34,6 +35,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         allowed_ips: Optional[List[str]] = None,
         deny_action: str = "drop",
         enable_model_json_output: bool = False,
+        buffer_size: int = 65536,  # 64KB default buffer size
     ):
         """
         Initialize the UDP protocol.
@@ -43,12 +45,14 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             allowed_ips: List of allowed IP addresses/networks (empty list means allow all)
             deny_action: Action to take for denied connections: "drop" or "reject"
             enable_model_json_output: Whether to generate JSON output of decoded models (for demos/debugging)
+            buffer_size: Size of the UDP receive buffer (to accommodate reassembled IP fragments)
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.udp")
         self.transport: Optional[asyncio.BaseTransport] = None
         self.decoder_type = decoder_type
         self.deny_action = deny_action
         self.enable_model_json_output = enable_model_json_output
+        self.buffer_size = buffer_size
 
         # Initialize IP filter
         self.ip_filter = IPFilter(allowed_ips)
@@ -67,6 +71,27 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         self.transport = transport
         socket_info = transport.get_extra_info("socket")
         if socket_info:
+            # Configure UDP socket buffer size to handle fragmented packets
+            try:
+                socket_info.setsockopt(
+                    socket_info.SOL_SOCKET, socket_info.SO_RCVBUF, self.buffer_size
+                )
+                actual_buffer_size = socket_info.getsockopt(
+                    socket_info.SOL_SOCKET, socket_info.SO_RCVBUF
+                )
+                self.logger.debug(
+                    "UDP receive buffer size configured",
+                    extra={
+                        "requested_size": self.buffer_size,
+                        "actual_size": actual_buffer_size,
+                    },
+                )
+            except (OSError, AttributeError) as e:
+                self.logger.warning(
+                    "Failed to set UDP receive buffer size",
+                    extra={"error": str(e), "requested_size": self.buffer_size},
+                )
+
             sockname = socket_info.getsockname()
             # Handle both IPv4 (host, port) and IPv6 (host, port, flowinfo, scopeid)
             if len(sockname) == 2:

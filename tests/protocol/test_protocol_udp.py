@@ -35,6 +35,16 @@ class TestSyslogUDPProtocol:
         assert protocol.decoder_type == "auto"
         assert isinstance(protocol.connection_cache, dict)
         assert isinstance(protocol.event_parsing_cache, dict)
+        assert protocol.buffer_size == 65536  # Default buffer size
+
+        # Test custom buffer size
+        protocol_custom = SyslogUDPProtocol(buffer_size=131072)
+        assert protocol_custom.buffer_size == 131072
+        assert protocol.buffer_size == 65536  # Default buffer size
+
+        # Test custom buffer size
+        protocol_custom = SyslogUDPProtocol(buffer_size=131072)
+        assert protocol_custom.buffer_size == 131072
 
     @pytest.mark.unit
     def test_connection_made(self, caplog):
@@ -263,3 +273,31 @@ class TestSyslogUDPProtocol:
         # Test with base decoder type
         protocol_base = SyslogUDPProtocol(decoder_type="base")
         assert protocol_base.decoder_type == "base"
+
+    @pytest.mark.unit
+    def test_socket_buffer_size_configuration(self, caplog):
+        """Test UDP socket buffer size configuration."""
+        caplog.set_level(logging.DEBUG)
+        protocol = SyslogUDPProtocol(buffer_size=131072)  # 128KB buffer
+
+        # Create a mock transport with socket info
+        mock_transport = MagicMock()
+        mock_socket = MagicMock()
+        mock_socket.SOL_SOCKET = 1  # Mock socket option level
+        mock_socket.SO_RCVBUF = 8  # Mock socket option name
+        mock_socket.getsockopt.return_value = (
+            262144  # OS might double the requested size
+        )
+        mock_socket.getsockname.return_value = ("127.0.0.1", 514)
+        mock_transport.get_extra_info.return_value = mock_socket
+
+        # Call connection_made
+        protocol.connection_made(mock_transport)
+
+        # Check buffer size was set
+        mock_socket.setsockopt.assert_called_once_with(
+            mock_socket.SOL_SOCKET, mock_socket.SO_RCVBUF, 131072
+        )
+
+        # Check that the debug log contains buffer size info
+        assert "UDP receive buffer size configured" in caplog.text

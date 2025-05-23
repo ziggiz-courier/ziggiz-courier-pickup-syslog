@@ -47,6 +47,7 @@ class Config(BaseModel):
     unix_socket_path: Optional[str] = (
         None  # Path for Unix socket when protocol is "unix"
     )
+    udp_buffer_size: int = 65536  # UDP receive buffer size (64KB default)
 
     # IP filtering configuration
     allowed_ips: List[str] = Field(
