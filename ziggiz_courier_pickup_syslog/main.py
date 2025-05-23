@@ -17,8 +17,21 @@ import sys
 
 from typing import Optional
 
+# Third-party imports
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
 # Local/package imports
 from ziggiz_courier_pickup_syslog.config import Config, configure_logging, load_config
+
+# No need to specify endpoint or service name here if using env vars
+provider = TracerProvider(resource=Resource.create({}))
+trace.set_tracer_provider(provider)
+exporter = OTLPSpanExporter()  # Will use env vars for endpoint, protocol, etc.
+provider.add_span_processor(BatchSpanProcessor(exporter))
 
 
 def setup_logging(log_level: str = "INFO", config: Optional[Config] = None) -> None:

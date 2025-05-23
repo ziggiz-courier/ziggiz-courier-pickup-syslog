@@ -24,9 +24,16 @@ fi
 # Path to the demo configuration
 CONFIG_PATH="./examples/demo_config.yaml"
 
+# OTel/Jaeger environment variables
+export OTEL_TRACES_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
+export OTEL_EXPORTER_OTLP_PROTOCOL="http/protobuf"
+export OTEL_SERVICE_NAME="ziggiz-courier-pickup-syslog-demo"
+export OTEL_RESOURCE_ATTRIBUTES="service.version=demo"
+
 echo -e "${BLUE}Starting the syslog server...${NC}"
 echo -e "Using configuration: ${CONFIG_PATH}"
-echo -e "The server will listen on UDP port 5140"
+echo -e "The server will listen on TCP port 5140"
 echo
 
 # Highlight the JSON model output feature

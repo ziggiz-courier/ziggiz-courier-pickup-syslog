@@ -106,11 +106,11 @@ echo -e "${BLUE}Sending test message to ${HOST}:${PORT}...${NC}"
 echo -e "${YELLOW}Message type:${NC} $MESSAGE_TYPE"
 echo -e "${YELLOW}Message:${NC} $MESSAGE"
 
-# Send the message with a very short timeout - UDP doesn't require a connection
-echo "$MESSAGE" | nc -u -w 1 "$HOST" "$PORT"
+ # Send the message using TCP
+echo "$MESSAGE" | nc -w 2 "$HOST" "$PORT"
 
-# For UDP, we can't know if it was actually received since it's connectionless
-echo -e "${GREEN}Message sent!${NC}"
+# For TCP, if the server is running, the message should be delivered reliably
+echo -e "${GREEN}Message sent over TCP!${NC}"
 echo -e "${BLUE}If the server is running, you should see in its output:${NC}"
 echo -e " - Debug log of message receipt"
 echo -e " - ${YELLOW}Complete JSON model representation${NC} of the decoded message"

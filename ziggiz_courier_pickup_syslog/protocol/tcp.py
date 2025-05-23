@@ -149,8 +149,11 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         Returns:
             A bytearray to be filled with incoming data
         """
-        # Create a new buffer of the requested size, capped by max_buffer_size
-        buffer_size = min(sizehint, self.max_buffer_size)
+        # If sizehint is negative, use max_buffer_size (asyncio convention)
+        if sizehint is None or sizehint < 0:
+            buffer_size = self.max_buffer_size
+        else:
+            buffer_size = min(sizehint, self.max_buffer_size)
         self._read_buffer = bytearray(buffer_size)
         return self._read_buffer
 
@@ -193,8 +196,12 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                 if msg:  # Skip empty messages
                     message = msg.decode("utf-8", errors="replace")
                     # Start a span for each message, attach connection info as attributes
+                    # Third-party imports
+                    from opentelemetry.trace import SpanKind
+
                     with tracer.start_as_current_span(
                         "syslog.tcp.message",
+                        kind=SpanKind.SERVER,
                         attributes={
                             "net.transport": "ip_tcp",
                             "net.peer.ip": host,

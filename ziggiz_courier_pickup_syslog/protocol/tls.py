@@ -42,8 +42,12 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             for msg in messages:
                 if msg:
                     message = msg.decode("utf-8", errors="replace")
+                    # Third-party imports
+                    from opentelemetry.trace import SpanKind
+
                     with tracer.start_as_current_span(
                         "syslog.tls.message",
+                        kind=SpanKind.SERVER,
                         attributes={
                             "net.transport": "ip_tcp",
                             "net.peer.ip": host,

@@ -2,7 +2,7 @@
 
 # Server configuration
 host: "127.0.0.1"  # Listen on localhost for the demo
-protocol: "udp"    # UDP is simpler for demo purposes
+protocol: "tcp"    # TCP for demo purposes
 port: 5140         # Using a non-privileged port for the demo
 
 # Framing configuration

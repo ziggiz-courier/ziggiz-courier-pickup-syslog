@@ -13,8 +13,9 @@ python = ">=3.9,<3.14"
 opentelemetry-api = "^1.32.1"
 opentelemetry-sdk = "^1.32.1"
 pydantic = "^2.6.1"
-ziggiz-courier-handler-core = {git = "https://github.com/ziggiz-courier/ziggiz-courier-handler-core.git", rev = "v0.2.2"}
+ziggiz-courier-handler-core = {git = "https://github.com/ziggiz-courier/ziggiz-courier-handler-core.git", rev = "v0.3.0"}
 toml = "^0.10.2"
+opentelemetry-exporter-otlp = "^1.33.1"
 
 [tool.poetry.scripts]
 ziggiz-syslog = "ziggiz_courier_pickup_syslog.main:main"

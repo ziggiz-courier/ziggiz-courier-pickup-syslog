@@ -148,8 +148,12 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         # Decode the data
         message = data.decode("utf-8", errors="replace")
         # Start a span for each UDP message
+        # Third-party imports
+        from opentelemetry.trace import SpanKind
+
         with tracer.start_as_current_span(
             "syslog.udp.message",
+            kind=SpanKind.SERVER,
             attributes={
                 "net.transport": "ip_udp",
                 "net.peer.ip": host,
