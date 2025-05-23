@@ -67,7 +67,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tls")
         self.cert_verifier = cert_verifier
 
-    def connection_made(self, transport) -> None:
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """
         Called when a connection is made.
 

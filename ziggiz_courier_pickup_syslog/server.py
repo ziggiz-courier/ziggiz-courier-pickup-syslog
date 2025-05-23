@@ -124,7 +124,7 @@ class SyslogServer:
         """
         try:
             # Create a factory function to pass configuration options to the protocol
-            def protocol_factory():
+            def protocol_factory() -> SyslogUDPProtocol:
                 return SyslogUDPProtocol(
                     decoder_type=self.config.decoder_type,
                     allowed_ips=self.config.allowed_ips,
@@ -158,7 +158,7 @@ class SyslogServer:
         """
         try:
             # Create a factory function to pass configuration options to the protocol
-            def protocol_factory():
+            def protocol_factory() -> SyslogTCPProtocol:
                 return SyslogTCPProtocol(
                     framing_mode=self.config.framing_mode,
                     end_of_message_marker=self.config.end_of_message_marker,
@@ -203,7 +203,7 @@ class SyslogServer:
                 os.makedirs(socket_dir, exist_ok=True)
 
             # Create a factory function to pass configuration options to the protocol
-            def protocol_factory():
+            def protocol_factory() -> SyslogUnixProtocol:
                 return SyslogUnixProtocol(
                     framing_mode=self.config.framing_mode,
                     end_of_message_marker=self.config.end_of_message_marker,
@@ -270,9 +270,10 @@ class SyslogServer:
                 raise ValueError("Key file is required for TLS server")
 
             # Create SSL context and certificate verifier
+            # We've validated that certfile and keyfile are not None earlier in the function
             ssl_context, cert_verifier = TLSContextBuilder.create_server_context(
-                certfile=certfile,  # type: ignore # We've validated it's not None
-                keyfile=keyfile,  # type: ignore # We've validated it's not None
+                certfile=certfile,  # Validated not None
+                keyfile=keyfile,  # Validated not None
                 ca_certs=ca_certs,
                 verify_client=verify_client,
                 min_version=min_version,
@@ -281,7 +282,7 @@ class SyslogServer:
             )
 
             # Create a factory function to pass configuration options to the protocol
-            def protocol_factory():
+            def protocol_factory() -> SyslogTLSProtocol:
                 return SyslogTLSProtocol(
                     framing_mode=self.config.framing_mode,
                     end_of_message_marker=self.config.end_of_message_marker,

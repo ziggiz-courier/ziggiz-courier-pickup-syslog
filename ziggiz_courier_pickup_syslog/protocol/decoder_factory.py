@@ -21,19 +21,14 @@
 # Standard library imports
 import logging
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 # Third-party imports
-from ziggiz_courier_handler_core.decoders import (
+from ziggiz_courier_handler_core.decoders import (  # type: ignore
     SyslogRFC3164Decoder,
     SyslogRFC5424Decoder,
     SyslogRFCBaseDecoder,
     UnknownSyslogDecoder,
-)
-
-# Import the envelope model for docstring references
-from ziggiz_courier_handler_core.models.event_envelope_base import (  # noqa
-    EventEnvelopeBaseModel,
 )
 
 
@@ -59,9 +54,14 @@ class DecoderFactory:
     @staticmethod
     def create_decoder(
         decoder_type: str = "auto",
-        connection_cache: Optional[Dict] = None,
-        event_parsing_cache: Optional[Dict] = None,
-    ):
+        connection_cache: Optional[Dict[str, Any]] = None,
+        event_parsing_cache: Optional[Dict[str, Any]] = None,
+    ) -> Union[
+        UnknownSyslogDecoder,
+        SyslogRFC3164Decoder,
+        SyslogRFC5424Decoder,
+        SyslogRFCBaseDecoder,
+    ]:
         """
         Create a decoder instance based on the specified decoder type.
 
@@ -156,9 +156,9 @@ class DecoderFactory:
     def decode_message(
         decoder_type: str,
         message: str,
-        connection_cache: Optional[Dict] = None,
-        event_parsing_cache: Optional[Dict] = None,
-    ):
+        connection_cache: Optional[Dict[str, Any]] = None,
+        event_parsing_cache: Optional[Dict[str, Any]] = None,
+    ) -> Any:  # Actual return type depends on decoder implementation
         """
         Decode a syslog message using the specified decoder type.
 

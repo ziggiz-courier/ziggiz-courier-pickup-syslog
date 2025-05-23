@@ -56,8 +56,8 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
             deny_action: Not used for Unix sockets
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.unix")
-        self.transport = None
-        self.peername = None
+        self.transport: Optional[asyncio.BaseTransport] = None
+        self.peername: Optional[str] = None
         self.decoder_type = decoder_type
 
         # Connection-specific caches for the decoder
@@ -89,7 +89,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
         # Maximum size to allocate for the incoming buffer
         self.max_buffer_size = 65536  # 64KB
 
-    def connection_made(self, transport) -> None:
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """
         Called when a connection is made.
 
@@ -449,12 +449,12 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
 
     # Add an alias for the buffer property to support legacy tests
     @property
-    def buffer(self):
+    def buffer(self) -> bytes:
         """Compatibility property for accessing the framing helper's buffer."""
         return self.framing_helper._buffer
 
     @buffer.setter
-    def buffer(self, value):
+    def buffer(self, value: bytes) -> None:
         """Setter for the buffer property to support legacy tests."""
         self.framing_helper._buffer.clear()
         self.framing_helper._buffer.extend(value)

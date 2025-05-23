@@ -13,7 +13,7 @@
 import asyncio
 import logging
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
@@ -57,8 +57,8 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             deny_action: Action to take for denied connections: "drop" or "reject"
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tcp")
-        self.transport = None
-        self.peername = None
+        self.transport: Optional[asyncio.BaseTransport] = None
+        self.peername: Optional[Tuple[str, int]] = None
         self.decoder_type = decoder_type
         self.deny_action = deny_action
 
@@ -94,7 +94,7 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         # Maximum size to allocate for the incoming buffer
         self.max_buffer_size = 65536  # 64KB
 
-    def connection_made(self, transport) -> None:
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """
         Called when a connection is made.
 
@@ -328,6 +328,6 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
 
     # Add an alias for the buffer property to support legacy tests
     @property
-    def buffer(self):
+    def buffer(self) -> bytes:
         """Compatibility property for accessing the framing helper's buffer."""
         return self.framing_helper._buffer

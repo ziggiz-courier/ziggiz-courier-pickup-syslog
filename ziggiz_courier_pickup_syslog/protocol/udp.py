@@ -43,7 +43,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             deny_action: Action to take for denied connections: "drop" or "reject"
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.udp")
-        self.transport = None
+        self.transport: Optional[asyncio.BaseTransport] = None
         self.decoder_type = decoder_type
         self.deny_action = deny_action
 
@@ -54,7 +54,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         self.connection_cache: Dict[Any, Any] = {}
         self.event_parsing_cache: Dict[Any, Any] = {}
 
-    def connection_made(self, transport) -> None:
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """
         Called when the connection is established.
 
