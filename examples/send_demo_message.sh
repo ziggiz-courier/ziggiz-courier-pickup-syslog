@@ -67,11 +67,8 @@ fi
 if ! nc -z $HOST $PORT 2>/dev/null; then
     echo -e "${YELLOW}Warning: No server detected at ${HOST}:${PORT}.${NC}"
     echo -e "Make sure the server is running (use ./examples/start_demo_server.sh)"
-    echo -e "Continue anyway? (y/n)"
-    read -r response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    # No longer prompt, just continue
+    echo -e "${BLUE}Proceeding to send message anyway...${NC}"
 fi
 
 # Prepare the message based on type
@@ -109,15 +106,13 @@ echo -e "${BLUE}Sending test message to ${HOST}:${PORT}...${NC}"
 echo -e "${YELLOW}Message type:${NC} $MESSAGE_TYPE"
 echo -e "${YELLOW}Message:${NC} $MESSAGE"
 
-# Send the message
-echo "$MESSAGE" | nc -u "$HOST" "$PORT"
+# Send the message with a very short timeout - UDP doesn't require a connection
+echo "$MESSAGE" | nc -u -w 1 "$HOST" "$PORT"
 
-# Check if the message was sent successfully
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}Message sent successfully!${NC}"
-    echo -e "${BLUE}Check the server output to see the decoded message.${NC}"
-else
-    echo -e "${RED}Failed to send message.${NC}"
-    echo "Make sure the server is running and the host/port are correct."
-    exit 1
-fi
+# For UDP, we can't know if it was actually received since it's connectionless
+echo -e "${GREEN}Message sent!${NC}"
+echo -e "${BLUE}If the server is running, you should see in its output:${NC}"
+echo -e " - Debug log of message receipt"
+echo -e " - ${YELLOW}Complete JSON model representation${NC} of the decoded message"
+echo -e " - Detailed structured view of all parsed message fields"
+exit 0

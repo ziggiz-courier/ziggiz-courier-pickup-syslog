@@ -29,6 +29,13 @@ echo -e "Using configuration: ${CONFIG_PATH}"
 echo -e "The server will listen on UDP port 5140"
 echo
 
+# Highlight the JSON model output feature
+echo -e "${GREEN}Demo Features:${NC}"
+echo -e "• Complete ${YELLOW}JSON representation${NC} of decoded models will be displayed"
+echo -e "• All received messages will show as structured data"
+echo -e "• This demonstrates our refactored solution with enhanced output"
+echo
+
 # Start the server in the foreground
 echo -e "${YELLOW}Server is starting. Press Ctrl+C to stop.${NC}"
 echo -e "${BLUE}To send test messages, run ./examples/send_demo_message.sh in another terminal.${NC}"

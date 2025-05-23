@@ -62,19 +62,53 @@ class TestDecoderFactory:
             DecoderFactory.create_decoder("invalid")
         assert "Invalid decoder type: invalid" in str(excinfo.value)
 
-    def test_decode_message(self, caplog):
+    def test_decode_message(self, caplog, monkeypatch):
         """Test decode_message method."""
-        caplog.set_level(logging.DEBUG)
+        # Set up a handler that works with pytest's caplog
+        test_handler = logging.StreamHandler()
+        test_formatter = logging.Formatter("%(levelname)s %(name)s %(message)s")
+        test_handler.setFormatter(test_formatter)
 
-        # Mock the decoder.decode method
-        mock_decoder = MagicMock()
-        mock_decoder.decode.return_value = MagicMock()
+        # Save original handlers and logger settings
+        original_handlers = DecoderFactory.logger.handlers.copy()
+        original_propagate = DecoderFactory.logger.propagate
 
-        with patch.object(DecoderFactory, "create_decoder", return_value=mock_decoder):
-            DecoderFactory.decode_message(
-                "auto", "<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick"
+        # Update logger for testing
+        DecoderFactory.logger.handlers = [test_handler]
+        DecoderFactory.logger.propagate = True
+
+        try:
+            # Set level and clear any existing entries
+            caplog.set_level(logging.DEBUG)
+
+            # Mock the decoder.decode method
+            mock_decoder = MagicMock()
+            mock_decoder.decode.return_value = MagicMock()
+
+            with patch.object(
+                DecoderFactory, "create_decoder", return_value=mock_decoder
+            ):
+                DecoderFactory.decode_message(
+                    "auto",
+                    "<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick",
+                    enable_model_json_output=True,
+                )
+
+            # Verify the decoder was created and called correctly
+            mock_decoder.decode.assert_called_once()
+
+            # Check for both original and new log messages
+            assert any(
+                "Decoding syslog message" in record.message
+                for record in caplog.records
+                if "decoder_factory" in record.name
             )
-
-        # Verify the decoder was created and called correctly
-        mock_decoder.decode.assert_called_once()
-        assert "Decoding syslog message" in caplog.text
+            assert any(
+                "Decoded model JSON representation" in record.message
+                for record in caplog.records
+                if "decoder_factory" in record.name
+            )
+        finally:
+            # Restore original logger configuration
+            DecoderFactory.logger.handlers = original_handlers
+            DecoderFactory.logger.propagate = original_propagate

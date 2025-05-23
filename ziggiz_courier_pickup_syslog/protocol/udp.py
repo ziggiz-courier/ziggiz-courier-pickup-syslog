@@ -33,6 +33,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         decoder_type: str = "auto",
         allowed_ips: Optional[List[str]] = None,
         deny_action: str = "drop",
+        enable_model_json_output: bool = False,
     ):
         """
         Initialize the UDP protocol.
@@ -41,11 +42,13 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
             allowed_ips: List of allowed IP addresses/networks (empty list means allow all)
             deny_action: Action to take for denied connections: "drop" or "reject"
+            enable_model_json_output: Whether to generate JSON output of decoded models (for demos/debugging)
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.udp")
         self.transport: Optional[asyncio.BaseTransport] = None
         self.decoder_type = decoder_type
         self.deny_action = deny_action
+        self.enable_model_json_output = enable_model_json_output
 
         # Initialize IP filter
         self.ip_filter = IPFilter(allowed_ips)
@@ -117,6 +120,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
                 message,
                 connection_cache=self.connection_cache,
                 event_parsing_cache=self.event_parsing_cache,
+                enable_model_json_output=self.enable_model_json_output,
             )
             # Log the decoded message with its type
             msg_type = type(decoded_message).__name__

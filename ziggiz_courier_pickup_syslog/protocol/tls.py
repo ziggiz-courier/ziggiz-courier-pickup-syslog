@@ -42,6 +42,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
         cert_verifier: Optional[CertificateVerifier] = None,
         allowed_ips: Optional[List[str]] = None,
         deny_action: str = "drop",
+        enable_model_json_output: bool = False,
     ):
         """
         Initialize the TLS protocol.
@@ -54,6 +55,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             cert_verifier: Optional certificate verifier for client certificate validation
             allowed_ips: List of allowed IP addresses/networks (empty list means allow all)
             deny_action: Action to take for denied connections: "drop" or "reject"
+            enable_model_json_output: Whether to generate JSON output of decoded models (for demos/debugging)
         """
         super().__init__(
             framing_mode=framing_mode,
@@ -62,6 +64,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             decoder_type=decoder_type,
             allowed_ips=allowed_ips,
             deny_action=deny_action,
+            enable_model_json_output=enable_model_json_output,
         )
         # Override the logger name for TLS
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tls")
@@ -253,6 +256,7 @@ async def create_tls_server(
     max_message_length: int = 16 * 1024,
     decoder_type: str = "auto",
     cert_rules: Optional[List[Dict[str, Union[str, bool]]]] = None,
+    enable_model_json_output: bool = False,
 ) -> Tuple[asyncio.AbstractServer, ssl.SSLContext]:
     """
     Create a TLS syslog server.
@@ -271,6 +275,7 @@ async def create_tls_server(
         max_message_length: Maximum message length for non-transparent framing
         decoder_type: The type of syslog decoder to use
         cert_rules: Optional list of certificate verification rules
+        enable_model_json_output: Whether to generate JSON output of decoded models (for demos/debugging)
 
     Returns:
         Tuple of (server, ssl_context)
@@ -298,6 +303,7 @@ async def create_tls_server(
             max_message_length=max_message_length,
             decoder_type=decoder_type,
             cert_verifier=cert_verifier,
+            enable_model_json_output=enable_model_json_output,
         ),
     )
 

@@ -82,6 +82,9 @@ class Config(BaseModel):
 
     # Syslog decoder configuration
     decoder_type: str = "auto"  # "auto", "rfc3164", "rfc5424", or "base"
+    enable_model_json_output: bool = (
+        False  # Whether to generate JSON output of decoded models (for demos/debugging)
+    )
 
     # Logging configuration
     log_level: str = "INFO"

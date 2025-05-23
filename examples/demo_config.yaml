@@ -12,8 +12,10 @@ max_message_length: 16384
 
 # Decoder configuration
 decoder_type: "auto"  # Auto-detect message format
+enable_model_json_output: true  # Enable JSON model output for the demo
 
 # Logging configuration - Set to DEBUG to show decoded messages
+# INFO level also needed to see the JSON model representation
 log_level: "DEBUG"
 log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"
 log_date_format: "%Y-%m-%d %H:%M:%S"
@@ -33,6 +35,11 @@ loggers:
   # Message decoders
   - name: "ziggiz_courier_pickup_syslog.protocol.decoder"
     level: "DEBUG"
+    propagate: true
+
+  # Decoder factory - this contains our enhanced JSON model output
+  - name: "ziggiz_courier_pickup_syslog.protocol.decoder_factory"
+    level: "INFO"  # Ensures the JSON model output is visible
     propagate: true
 
   # Limit noise from asyncio

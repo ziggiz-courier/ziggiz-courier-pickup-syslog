@@ -49,6 +49,7 @@ host: "0.0.0.0"      # Host address to bind to (for TCP/UDP)
 protocol: "tcp"      # Protocol to use: "tcp", "udp", or "unix"
 port: 514            # TCP or UDP port to listen on (when using TCP/UDP protocols)
 unix_socket_path: "/var/run/ziggiz-syslog.sock"  # Path for Unix socket (when using unix protocol)
+enable_model_json_output: false  # Enable JSON output of decoded models (for demos/debugging)
 
 # Framing configuration
 framing_mode: "auto"  # Message framing mode: "auto", "transparent", or "non_transparent"
@@ -225,3 +226,18 @@ This project uses GitHub Actions for continuous integration. The CI pipeline:
 The CI workflow is triggered on:
 - Push to main/master branch
 - Pull requests to main/master branch
+
+## Documentation
+
+### JSON Model Output
+
+The server can be configured to output JSON representations of decoded syslog messages, which is particularly useful for debugging, development, and demonstration purposes. This feature is controlled by the `enable_model_json_output` configuration option.
+
+```yaml
+# Enable JSON model output (recommended for demo/development only)
+enable_model_json_output: true
+```
+
+By default, this option is set to `false` to optimize performance in production environments. When enabled, decoded message models will be serialized to JSON and included in the logs.
+
+For detailed information about this feature, see [JSON Model Output Documentation](docs/json_output.md).

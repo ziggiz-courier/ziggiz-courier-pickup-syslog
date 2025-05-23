@@ -129,6 +129,7 @@ class SyslogServer:
                     decoder_type=self.config.decoder_type,
                     allowed_ips=self.config.allowed_ips,
                     deny_action=self.config.deny_action,
+                    enable_model_json_output=self.config.enable_model_json_output,
                 )
 
             if self.loop is None:
@@ -291,6 +292,7 @@ class SyslogServer:
                     cert_verifier=cert_verifier,
                     allowed_ips=self.config.allowed_ips,
                     deny_action=self.config.deny_action,
+                    enable_model_json_output=self.config.enable_model_json_output,
                 )
 
             # Create the server

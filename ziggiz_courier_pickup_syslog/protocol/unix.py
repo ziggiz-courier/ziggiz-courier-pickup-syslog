@@ -43,6 +43,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
         decoder_type: str = "auto",
         allowed_ips: Optional[List[str]] = None,  # Not used for Unix sockets
         deny_action: str = "drop",  # Not used for Unix sockets
+        enable_model_json_output: bool = False,
     ):
         """
         Initialize the Unix Stream protocol.
@@ -54,11 +55,13 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
             decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
             allowed_ips: Not used for Unix sockets
             deny_action: Not used for Unix sockets
+            enable_model_json_output: Whether to generate JSON output of decoded models (for demos/debugging)
         """
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.unix")
         self.transport: Optional[asyncio.BaseTransport] = None
         self.peername: Optional[str] = None
         self.decoder_type = decoder_type
+        self.enable_model_json_output = enable_model_json_output
 
         # Connection-specific caches for the decoder
         self.connection_cache: Dict[Any, Any] = {}

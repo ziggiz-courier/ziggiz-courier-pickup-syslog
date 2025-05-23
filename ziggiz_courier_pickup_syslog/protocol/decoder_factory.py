@@ -19,6 +19,7 @@
 # Each decoder instance is scoped to a specific connection to ensure thread-safety.
 
 # Standard library imports
+import json
 import logging
 
 from typing import Any, Dict, Optional, Union
@@ -48,8 +49,75 @@ class DecoderFactory:
     connection-specific caches.
     """
 
-    # Class logger instance
+    # Custom formatter to show extra dictionary in logs
+    class ExtraInfoFormatter(logging.Formatter):
+        def format(self, record):
+            formatted_message = super().format(record)
+
+            # Extract all non-standard attributes as extra data
+            standard_attrs = {
+                "name",
+                "msg",
+                "args",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "exc_info",
+                "exc_text",
+                "lineno",
+                "funcName",
+                "created",
+                "asctime",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+                "message",
+            }
+
+            # Collect extra attributes
+            extra_dict = {
+                key: getattr(record, key)
+                for key in record.__dict__
+                if key not in standard_attrs and not key.startswith("_")
+            }
+
+            if extra_dict:
+                extra_str = json.dumps(
+                    extra_dict, default=str, sort_keys=True, indent=2
+                )
+                return f"{formatted_message} - Extra: {extra_str}"
+            return formatted_message
+
+    # Set up the logger with custom formatter
     logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.decoder_factory")
+
+    # Ensure we get all logger messages including debug level
+    logger.setLevel(logging.DEBUG)
+
+    # Force propagation to be False so we don't duplicate messages
+    logger.propagate = False
+
+    # Create a new handler for this logger
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+
+    # Set our custom formatter that displays the extra dictionary
+    console_handler.setFormatter(
+        ExtraInfoFormatter(
+            "%(asctime)s %(levelname)s %(name)s %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+
+    # Clear any existing handlers and add our custom one
+    if logger.handlers:
+        logger.handlers.clear()
+    logger.addHandler(console_handler)
 
     @staticmethod
     def create_decoder(
@@ -158,6 +226,7 @@ class DecoderFactory:
         message: str,
         connection_cache: Optional[Dict[str, Any]] = None,
         event_parsing_cache: Optional[Dict[str, Any]] = None,
+        enable_model_json_output: bool = False,
     ) -> Any:  # Actual return type depends on decoder implementation
         """
         Decode a syslog message using the specified decoder type.
@@ -184,6 +253,7 @@ class DecoderFactory:
             message: The syslog message to decode
             connection_cache: Optional dictionary for caching connection details
             event_parsing_cache: Optional dictionary for caching event parsing results
+            enable_model_json_output: Whether to generate JSON output of decoded models (for demos/debugging)
 
         Returns:
             The decoded message (an EventEnvelopeBaseModel instance if ziggiz_courier_handler_core is available)
@@ -213,6 +283,49 @@ class DecoderFactory:
                 event_parsing_cache=event_cache,
             )
             result = decoder.decode(message)
+
+            # Convert the decoded model to a JSON string for demonstration purposes
+            # Only do this when explicitly enabled (typically in demo mode)
+            if enable_model_json_output:
+                try:
+                    # Different models might have different serialization methods
+                    if hasattr(result, "model_dump_json"):  # Pydantic v2 style
+                        model_json = result.model_dump_json(indent=2)  # type: ignore
+                    elif hasattr(result, "json"):  # Pydantic v1 style
+                        model_json = result.json(indent=2)  # type: ignore
+                    elif hasattr(result, "dict") or hasattr(
+                        result, "model_dump"
+                    ):  # Dict conversion fallback
+                        dump_method = getattr(
+                            result, "model_dump", getattr(result, "dict", None)
+                        )
+                        if dump_method:
+                            model_dict = dump_method()  # type: ignore
+                            model_json = json.dumps(model_dict, default=str, indent=2)
+                        else:
+                            model_json = json.dumps(
+                                {
+                                    "info": "Model doesn't support direct JSON serialization"
+                                }
+                            )
+                    else:
+                        # Last resort: attempt direct serialization with default converter for custom types
+                        model_json = json.dumps(
+                            result,
+                            default=lambda o: f"<non-serializable: {type(o).__name__}>",
+                            indent=2,
+                        )
+
+                    # Log the JSON representation of the decoded model
+                    DecoderFactory.logger.info(
+                        "Decoded model JSON representation:",
+                        extra={"decoded_model_json": model_json},
+                    )
+                except Exception as json_err:
+                    DecoderFactory.logger.warning(
+                        "Failed to create JSON representation of decoded model",
+                        extra={"error": str(json_err)},
+                    )
 
             # Log successful decoding with additional context
             DecoderFactory.logger.debug(
