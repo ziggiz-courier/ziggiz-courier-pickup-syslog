@@ -25,6 +25,7 @@ from typing import Dict, Optional
 from ziggiz_courier_handler_core.decoders import (
     SyslogRFC3164Decoder,
     SyslogRFC5424Decoder,
+    SyslogRFCBaseDecoder,
     UnknownSyslogDecoder,
 )
 
@@ -107,11 +108,11 @@ class DecoderFactory:
                 connection_cache=conn_cache,
                 event_parsing_cache=event_cache,
             )
-        # elif decoder_type == "base":
-        #     return SyslogRFCBaseDecoder(
-        #         connection_cache=conn_cache,
-        #         event_parsing_cache=event_cache,
-        #     )
+        elif decoder_type == "base":
+            return SyslogRFCBaseDecoder(
+                connection_cache=conn_cache,
+                event_parsing_cache=event_cache,
+            )
         else:
             raise ValueError(
                 f"Invalid decoder type: {decoder_type}. "
