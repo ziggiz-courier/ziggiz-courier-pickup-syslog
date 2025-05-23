@@ -12,10 +12,8 @@ packages = [{include = "ziggiz_courier_pickup_syslog"}]
 python = ">=3.9,<3.14"
 opentelemetry-api = "^1.32.1"
 opentelemetry-sdk = "^1.32.1"
-mypy = "^1.15.0"
 pydantic = "^2.6.1"
 ziggiz-courier-handler-core = {git = "https://github.com/ziggiz-courier/ziggiz-courier-handler-core.git", rev = "v0.2.2"}
-aiokafka = "^0.10.0"
 toml = "^0.10.2"
 
 [tool.poetry.scripts]
@@ -27,6 +25,7 @@ pytest-cov = "^6.1.1"
 black = "^25.1.0"
 isort = "^6.0.1"
 autoflake8 = "^0.4.1"
+mypy = "^1.15.0"
 pytest-mypy = "^1.0.1"
 pre-commit = "^4.2.0"
 flake8-docstrings = "^1.7.0"
