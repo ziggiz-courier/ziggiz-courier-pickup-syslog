@@ -83,13 +83,15 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             if self.deny_action == "reject":
                 # Send a rejection message before closing
                 self.logger.warning(
-                    f"Rejected TLS connection from {host}:{port} (not in allowed IPs)"
+                    "Rejected TLS connection (not in allowed IPs)",
+                    extra={"host": host, "port": port},
                 )
                 # We can't send a proper rejection message in TLS, so just close the connection
                 transport.close()
             else:  # "drop"
                 self.logger.warning(
-                    f"Dropped TLS connection from {host}:{port} (not in allowed IPs)"
+                    "Dropped TLS connection (not in allowed IPs)",
+                    extra={"host": host, "port": port},
                 )
                 transport.close()
             return
@@ -102,8 +104,14 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             cipher = ssl_object.cipher()
             version = ssl_object.version()
             self.logger.info(
-                f"TLS connection established from {host}:{port} "
-                f"using {version}, cipher: {cipher[0]}, bits: {cipher[2]}"
+                "TLS connection established",
+                extra={
+                    "host": host,
+                    "port": port,
+                    "version": version,
+                    "cipher": cipher[0],
+                    "bits": cipher[2],
+                },
             )
 
             # Log and verify client certificate if available
@@ -115,17 +123,19 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                 if self.cert_verifier:
                     if not self.cert_verifier.verify_certificate(ssl_object):
                         self.logger.warning(
-                            f"Client certificate from {host}:{port} failed attribute verification"
+                            "Client certificate failed attribute verification",
+                            extra={"host": host, "port": port},
                         )
                         # We don't close the connection here because the SSL handshake has already
                         # completed. The application layer will need to decide how to handle this.
             else:
                 self.logger.warning(
-                    f"No client certificate provided from {host}:{port}"
+                    "No client certificate provided", extra={"host": host, "port": port}
                 )
         else:
             self.logger.warning(
-                f"TLS connection established from {host}:{port} but SSL information is not available"
+                "TLS connection established but SSL information is not available",
+                extra={"host": host, "port": port},
             )
 
     def _log_certificate_info(
@@ -152,10 +162,15 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
         not_after = cert.get("notAfter", "unknown")
 
         self.logger.info(
-            f"Client certificate from {host}:{port}:\n"
-            f"  Subject: {subject_str}\n"
-            f"  Issuer: {issuer_str}\n"
-            f"  Valid from {not_before} to {not_after}"
+            "Client certificate information",
+            extra={
+                "host": host,
+                "port": port,
+                "subject": subject_str,
+                "issuer": issuer_str,
+                "valid_from": not_before,
+                "valid_to": not_after,
+            },
         )
 
 

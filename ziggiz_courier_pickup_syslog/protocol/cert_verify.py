@@ -138,7 +138,7 @@ class CertificateVerifier:
 
         # Extract certificate attributes directly
         attributes = self.extract_cert_attributes(ssl_obj)
-        self.logger.debug(f"Certificate attributes: {attributes}")
+        self.logger.debug("Certificate attributes", extra={"attributes": attributes})
 
         # Check each rule
         for rule in self.rules:
@@ -148,7 +148,8 @@ class CertificateVerifier:
             if attribute_value is None:
                 if rule.required:
                     self.logger.warning(
-                        f"Required attribute '{rule.attribute}' not found in certificate"
+                        "Required attribute not found in certificate",
+                        extra={"attribute": rule.attribute},
                     )
                     return False
                 else:
@@ -158,8 +159,12 @@ class CertificateVerifier:
             # Check if the attribute matches the pattern
             if not rule.pattern.match(attribute_value):
                 self.logger.warning(
-                    f"Attribute '{rule.attribute}' with value '{attribute_value}' "
-                    f"does not match pattern '{rule.pattern_str}'"
+                    "Attribute with value does not match pattern",
+                    extra={
+                        "attribute": rule.attribute,
+                        "value": attribute_value,
+                        "pattern": rule.pattern_str,
+                    },
                 )
                 return False
 

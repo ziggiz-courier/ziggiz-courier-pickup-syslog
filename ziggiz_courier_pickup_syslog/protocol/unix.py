@@ -80,7 +80,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                 logger=self.logger,
             )
         except (ValueError, FramingDetectionError) as e:
-            self.logger.error(f"Error setting up framing: {e}")
+            self.logger.error("Error setting up framing", extra={"error": e})
             # Fall back to default settings
             self.framing_helper = FramingHelper(logger=self.logger)
 
@@ -109,7 +109,9 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
         else:
             peer_info = self.peername or "unknown"
 
-        self.logger.info(f"Unix Stream connection established from {peer_info}")
+        self.logger.info(
+            "Unix Stream connection established", extra={"peer": peer_info}
+        )
 
     def get_buffer(self, sizehint: int) -> bytearray:
         """
@@ -135,7 +137,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
         """
         peer_info = self.peername or "unknown"
         self.logger.debug(
-            f"Received {nbytes} bytes of Unix Stream data from {peer_info}"
+            "Received Unix Stream data", extra={"nbytes": nbytes, "peer": peer_info}
         )
 
         # Add the received data to the framing helper
@@ -154,7 +156,8 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                 and self.framing_helper._detected_mode == FramingMode.TRANSPARENT
             ):
                 self.logger.debug(
-                    f"Buffer size after adding data: {self.framing_helper.buffer_size} bytes"
+                    "Buffer size after adding data",
+                    extra={"buffer_size": self.framing_helper.buffer_size},
                 )
 
             # Extract all complete messages that can be processed
@@ -176,21 +179,31 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                         # Log the decoded message with its type
                         msg_type = type(decoded_message).__name__
                         self.logger.info(
-                            f"Syslog message ({msg_type}) from {peer_info}: {message}"
+                            "Syslog message received",
+                            extra={
+                                "msg_type": msg_type,
+                                "peer": peer_info,
+                                "message": message,
+                            },
                         )
                     except ImportError:
                         # If decoder is not available, just log the raw message
-                        self.logger.info(f"Syslog message from {peer_info}: {message}")
+                        self.logger.info(
+                            "Syslog message received",
+                            extra={"peer": peer_info, "message": message},
+                        )
                     except Exception as e:
                         # Log any parsing errors but don't fail
                         self.logger.warning(
-                            f"Failed to parse syslog message from {peer_info}: {e}"
+                            "Failed to parse syslog message",
+                            extra={"peer": peer_info, "error": e},
                         )
                         self.logger.info(
-                            f"Raw syslog message from {peer_info}: {message}"
+                            "Raw syslog message",
+                            extra={"peer": peer_info, "message": message},
                         )
         except FramingDetectionError as e:
-            self.logger.error(f"Framing error from {peer_info}: {e}")
+            self.logger.error("Framing error", extra={"peer": peer_info, "error": e})
             # If in transparent mode and detection fails, close the connection
             if self.framing_helper.framing_mode == FramingMode.TRANSPARENT:
                 self.logger.warning("Closing connection due to framing error")
@@ -205,7 +218,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
             False to close the transport, True to keep it open
         """
         peer_info = self.peername or "unknown"
-        self.logger.debug(f"EOF received from {peer_info}")
+        self.logger.debug("EOF received", extra={"peer": peer_info})
 
         # Extract and process any final messages
         try:
@@ -231,20 +244,28 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                         # Log the decoded message with its type
                         msg_type = type(decoded_message).__name__
                         self.logger.info(
-                            f"Final syslog message ({msg_type}) from {peer_info}: {message}"
+                            "Final syslog message (%(msg_type)s) from %(peer)s: %(message)s",
+                            {
+                                "msg_type": msg_type,
+                                "peer": peer_info,
+                                "message": message,
+                            },
                         )
                     except ImportError:
                         # If decoder is not available, just log the raw message
                         self.logger.info(
-                            f"Final syslog message from {peer_info}: {message}"
+                            "Final syslog message from %(peer)s: %(message)s",
+                            {"peer": peer_info, "message": message},
                         )
                     except Exception as e:
                         # Log any parsing errors but don't fail
                         self.logger.warning(
-                            f"Failed to parse final syslog message from {peer_info}: {e}"
+                            "Failed to parse final syslog message from %(peer)s: %(error)s",
+                            {"peer": peer_info, "error": e},
                         )
                         self.logger.info(
-                            f"Raw final syslog message from {peer_info}: {message}"
+                            "Raw final syslog message from %(peer)s: %(message)s",
+                            {"peer": peer_info, "message": message},
                         )
 
             # Handle remaining data in the buffer based on framing mode
@@ -266,20 +287,28 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                         # Log the decoded message with its type
                         msg_type = type(decoded_message).__name__
                         self.logger.info(
-                            f"Final syslog message ({msg_type}) from {peer_info}: {message}"
+                            "Final syslog message (%(msg_type)s) from %(peer)s: %(message)s",
+                            {
+                                "msg_type": msg_type,
+                                "peer": peer_info,
+                                "message": message,
+                            },
                         )
                     except ImportError:
                         # If decoder is not available, just log the raw message
                         self.logger.info(
-                            f"Final syslog message from {peer_info}: {message}"
+                            "Final syslog message from %(peer)s: %(message)s",
+                            {"peer": peer_info, "message": message},
                         )
                     except Exception as e:
                         # Log any parsing errors but don't fail
                         self.logger.warning(
-                            f"Failed to parse final syslog message from {peer_info}: {e}"
+                            "Failed to parse final syslog message from %(peer)s: %(error)s",
+                            {"peer": peer_info, "error": e},
                         )
                         self.logger.info(
-                            f"Raw final syslog message from {peer_info}: {message}"
+                            "Raw final syslog message from %(peer)s: %(message)s",
+                            {"peer": peer_info, "message": message},
                         )
                     # Clear the buffer since we've processed it
                     self.framing_helper._buffer.clear()
@@ -296,19 +325,26 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                             header_length = match.end()
                             received_bytes = len(buffer_data) - header_length
                             self.logger.warning(
-                                f"Incomplete transparent message from {peer_info}: "
-                                f"received {received_bytes} of {octet_count} bytes"
+                                "Incomplete transparent message from %(peer)s: "
+                                "received %(received)d of %(octet)d bytes",
+                                {
+                                    "peer": peer_info,
+                                    "received": received_bytes,
+                                    "octet": octet_count,
+                                },
                             )
                         except (ValueError, OverflowError) as e:
                             self.logger.error(
-                                f"Invalid octet count in transparent message from {peer_info}: {e}"
+                                "Invalid octet count in transparent message from %(peer)s: %(error)s",
+                                {"peer": peer_info, "error": e},
                             )
                     elif buffer_data.isascii() and not buffer_data.isdigit():
                         # Probably non-framed data was sent to a transparent mode server
                         message = buffer_data.decode("utf-8", errors="replace")
                         self.logger.warning(
-                            f"Received non-transparent data in transparent mode from {peer_info}. "
-                            f"Data: {message}"
+                            "Received non-transparent data in transparent mode from %(peer)s. "
+                            "Data: %(message)s",
+                            {"peer": peer_info, "message": message},
                         )
                         # Try to decode it anyway
                         try:
@@ -321,7 +357,12 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                             # Log the decoded message with its type
                             msg_type = type(decoded_message).__name__
                             self.logger.info(
-                                f"Final syslog message ({msg_type}) from {peer_info}: {message}"
+                                "Final syslog message (%(msg_type)s) from %(peer)s: %(message)s",
+                                {
+                                    "msg_type": msg_type,
+                                    "peer": peer_info,
+                                    "message": message,
+                                },
                             )
                         except (ImportError, Exception):
                             # Don't log extra errors here, we already warned above
@@ -341,30 +382,42 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                             # Log the decoded message with its type
                             msg_type = type(decoded_message).__name__
                             self.logger.info(
-                                f"Final syslog message ({msg_type}) from {peer_info}: {message}"
+                                "Final syslog message (%(msg_type)s) from %(peer)s: %(message)s",
+                                {
+                                    "msg_type": msg_type,
+                                    "peer": peer_info,
+                                    "message": message,
+                                },
                             )
                         except ImportError:
                             # If decoder is not available, just log the raw message
                             self.logger.info(
-                                f"Final syslog message from {peer_info}: {message}"
+                                "Final syslog message from %(peer)s: %(message)s",
+                                {"peer": peer_info, "message": message},
                             )
                         except Exception as e:
                             # Log any parsing errors but don't fail
                             self.logger.warning(
-                                f"Failed to parse final syslog message from {peer_info}: {e}"
+                                "Failed to parse final syslog message from %(peer)s: %(error)s",
+                                {"peer": peer_info, "error": e},
                             )
                             self.logger.info(
-                                f"Raw final syslog message from {peer_info}: {message}"
+                                "Raw final syslog message from %(peer)s: %(message)s",
+                                {"peer": peer_info, "message": message},
                             )
                         self.framing_helper._buffer.clear()
 
             # Check if there's still data in the buffer that couldn't be parsed
             if self.framing_helper.buffer_size > 0:
                 self.logger.warning(
-                    f"Discarding {self.framing_helper.buffer_size} bytes of unparsed data from {peer_info}"
+                    "Discarding %(buffer_size)d bytes of unparsed data from %(peer)s",
+                    {"buffer_size": self.framing_helper.buffer_size, "peer": peer_info},
                 )
         except Exception as e:
-            self.logger.error(f"Error processing final data from {peer_info}: {e}")
+            self.logger.error(
+                "Error processing final data from %(peer)s: %(error)s",
+                {"peer": peer_info, "error": e},
+            )
 
         # Return False to close the transport
         return False
@@ -381,10 +434,13 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
 
         if exc:
             self.logger.warning(
-                f"Unix Stream connection from {peer_info} closed with error: {exc}"
+                "Unix Stream connection from %(peer)s closed with error: %(error)s",
+                {"peer": peer_info, "error": exc},
             )
         else:
-            self.logger.info(f"Unix Stream connection from {peer_info} closed")
+            self.logger.info(
+                "Unix Stream connection from %(peer)s closed", {"peer": peer_info}
+            )
 
         # Reset the framing helper and clear buffers
         self.framing_helper.reset()

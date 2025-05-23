@@ -56,9 +56,11 @@ class IPFilter:
                         network = ipaddress.IPv6Network(f"{ip_str}/128", strict=False)
 
                 self.allowed_networks.append(network)
-                self.logger.debug(f"Added allowed network: {network}")
+                self.logger.debug("Added allowed network", extra={"network": network})
             except ValueError as e:
-                self.logger.warning(f"Invalid IP address or network '{ip_str}': {e}")
+                self.logger.warning(
+                    "Invalid IP address or network", extra={"ip": ip_str, "error": e}
+                )
 
     def is_allowed(self, ip_str: str) -> bool:
         """
@@ -78,7 +80,7 @@ class IPFilter:
         try:
             ip = ipaddress.ip_address(ip_str)
         except ValueError:
-            self.logger.warning(f"Invalid IP address: {ip_str}")
+            self.logger.warning("Invalid IP address", extra={"ip": ip_str})
             return False
 
         # Check if the IP is in any of the allowed networks

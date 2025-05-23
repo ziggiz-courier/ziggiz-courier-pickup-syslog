@@ -72,7 +72,9 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
                 host, port, _, _ = sockname
             else:
                 host, port = "unknown", "unknown"
-            self.logger.info(f"UDP server started on {host}:{port}")
+            self.logger.info(
+                "UDP server started on address", extra={"host": host, "port": port}
+            )
         else:
             self.logger.info("UDP server started")
 
@@ -91,17 +93,19 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             if self.deny_action == "reject" and self.transport:
                 # For UDP, we can send an ICMP port unreachable message
                 self.logger.warning(
-                    f"Rejected UDP datagram from {host}:{port} (not in allowed IPs)"
+                    "Rejected UDP datagram (not in allowed IPs)",
+                    extra={"host": host, "port": port},
                 )
                 # We don't actually send an ICMP message as that would require raw socket access
                 # Just log the rejection
             else:  # "drop"
                 self.logger.warning(
-                    f"Dropped UDP datagram from {host}:{port} (not in allowed IPs)"
+                    "Dropped UDP datagram (not in allowed IPs)",
+                    extra={"host": host, "port": port},
                 )
             return
 
-        self.logger.debug(f"Received UDP datagram from {host}:{port}")
+        self.logger.debug("Received UDP datagram", extra={"host": host, "port": port})
 
         # Decode the data
         message = data.decode("utf-8", errors="replace")
@@ -117,17 +121,30 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             # Log the decoded message with its type
             msg_type = type(decoded_message).__name__
             self.logger.info(
-                f"Syslog message ({msg_type}) from {host}:{port}: {message}"
+                "Syslog message received",
+                extra={
+                    "msg_type": msg_type,
+                    "host": host,
+                    "port": port,
+                    "message": message,
+                },
             )
         except ImportError:
             # If decoder is not available, just log the raw message
-            self.logger.info(f"Syslog message from {host}:{port}: {message}")
+            self.logger.info(
+                "Syslog message received",
+                extra={"host": host, "port": port, "message": message},
+            )
         except Exception as e:
             # Log any parsing errors but don't fail
             self.logger.warning(
-                f"Failed to parse syslog message from {host}:{port}: {e}"
+                "Failed to parse syslog message",
+                extra={"host": host, "port": port, "error": e},
             )
-            self.logger.info(f"Raw syslog message from {host}:{port}: {message}")
+            self.logger.info(
+                "Raw syslog message",
+                extra={"host": host, "port": port, "message": message},
+            )
 
     def error_received(self, exc: Exception) -> None:
         """
@@ -136,7 +153,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         Args:
             exc: The exception that was raised
         """
-        self.logger.error(f"Error in UDP server: {exc}")
+        self.logger.error("Error in UDP server", extra={"error": exc})
 
     def connection_lost(self, exc: Optional[Exception]) -> None:
         """
@@ -147,6 +164,8 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
                  or None if the connection was closed without an error
         """
         if exc:
-            self.logger.warning(f"UDP server connection closed with error: {exc}")
+            self.logger.warning(
+                "UDP server connection closed with error", extra={"error": exc}
+            )
         else:
             self.logger.info("UDP server connection closed")

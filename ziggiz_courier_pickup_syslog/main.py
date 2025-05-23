@@ -107,7 +107,7 @@ def run_server(
             loop.close()
 
     except Exception as e:
-        logger.exception(f"Failed to run server: {e}")
+        logger.exception("Failed to run server", extra={"error": e})
         sys.exit(1)
 
 
@@ -248,7 +248,7 @@ def main() -> None:
 
         # Log configuration source
         if args.config:
-            logger.info(f"Loaded configuration from {args.config}")
+            logger.info("Loaded configuration from file", extra={"config": args.config})
         else:
             logger.info("Using default or automatically detected configuration")
 
@@ -263,7 +263,7 @@ def main() -> None:
         if not logging.root.handlers:
             setup_logging("ERROR")
         logger = logging.getLogger("ziggiz_courier_pickup_syslog.main")
-        logger.exception(f"Unexpected error: {e}")
+        logger.exception("Unexpected error", extra={"error": e})
         sys.exit(1)
 
 

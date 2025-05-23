@@ -213,10 +213,10 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> Config:
             config_data = yaml.safe_load(f)
             return Config(**config_data)
         except yaml.YAMLError as e:
-            logging.error(f"Error parsing configuration file: {e}")
+            logging.error("Error parsing configuration file", extra={"error": e})
             raise
         except Exception as e:
-            logging.error(f"Error loading configuration: {e}")
+            logging.error("Error loading configuration", extra={"error": e})
             raise
 
 

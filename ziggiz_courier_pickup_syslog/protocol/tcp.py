@@ -85,7 +85,7 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                 logger=self.logger,
             )
         except (ValueError, FramingDetectionError) as e:
-            self.logger.error(f"Error setting up framing: {e}")
+            self.logger.error("Error setting up framing", extra={"error": e})
             # Fall back to default settings
             self.framing_helper = FramingHelper(logger=self.logger)
 
@@ -110,18 +110,22 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             if self.deny_action == "reject":
                 # Send a rejection message before closing
                 self.logger.warning(
-                    f"Rejected TCP connection from {host}:{port} (not in allowed IPs)"
+                    "Rejected TCP connection (not in allowed IPs)",
+                    extra={"host": host, "port": port},
                 )
                 # We can't send a proper rejection message in TCP, so just close the connection
                 transport.close()
             else:  # "drop"
                 self.logger.warning(
-                    f"Dropped TCP connection from {host}:{port} (not in allowed IPs)"
+                    "Dropped TCP connection (not in allowed IPs)",
+                    extra={"host": host, "port": port},
                 )
                 transport.close()
             return
 
-        self.logger.info(f"TCP connection established from {host}:{port}")
+        self.logger.info(
+            "TCP connection established", extra={"host": host, "port": port}
+        )
 
     def get_buffer(self, sizehint: int) -> bytearray:
         """
@@ -146,7 +150,9 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             nbytes: The number of bytes of data in the buffer
         """
         host, port = self.peername if self.peername else ("unknown", "unknown")
-        self.logger.debug(f"Received {nbytes} bytes of TCP data from {host}:{port}")
+        self.logger.debug(
+            "Received TCP data", extra={"nbytes": nbytes, "host": host, "port": port}
+        )
 
         # Add the received data to the framing helper
         if self._read_buffer is None:
@@ -163,7 +169,8 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                 and self.framing_helper._detected_mode == FramingMode.TRANSPARENT
             ):
                 self.logger.debug(
-                    f"Buffer size after adding data: {self.framing_helper.buffer_size} bytes"
+                    "Buffer size after adding data",
+                    extra={"buffer_size": self.framing_helper.buffer_size},
                 )
 
             # Extract all complete messages that can be processed
@@ -185,23 +192,34 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                         # Log the decoded message with its type
                         msg_type = type(decoded_message).__name__
                         self.logger.info(
-                            f"Syslog message ({msg_type}) from {host}:{port}: {message}"
+                            "Syslog message received",
+                            extra={
+                                "msg_type": msg_type,
+                                "host": host,
+                                "port": port,
+                                "message": message,
+                            },
                         )
                     except ImportError:
                         # If decoder is not available, just log the raw message
                         self.logger.info(
-                            f"Syslog message from {host}:{port}: {message}"
+                            "Syslog message received",
+                            extra={"host": host, "port": port, "message": message},
                         )
                     except Exception as e:
                         # Log any parsing errors but don't fail
                         self.logger.warning(
-                            f"Failed to parse syslog message from {host}:{port}: {e}"
+                            "Failed to parse syslog message",
+                            extra={"host": host, "port": port, "error": e},
                         )
                         self.logger.info(
-                            f"Raw syslog message from {host}:{port}: {message}"
+                            "Raw syslog message",
+                            extra={"host": host, "port": port, "message": message},
                         )
         except FramingDetectionError as e:
-            self.logger.error(f"Framing error from {host}:{port}: {e}")
+            self.logger.error(
+                "Framing error", extra={"host": host, "port": port, "error": e}
+            )
             # If in transparent mode and detection fails, close the connection
             if self.framing_helper.framing_mode == FramingMode.TRANSPARENT:
                 self.logger.warning("Closing connection due to framing error")
@@ -216,7 +234,7 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
             False to close the transport, True to keep it open
         """
         host, port = self.peername if self.peername else ("unknown", "unknown")
-        self.logger.debug(f"EOF received from {host}:{port}")
+        self.logger.debug("EOF received", extra={"host": host, "port": port})
 
         # Extract and process any final messages
         try:
@@ -239,29 +257,46 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                         # Log the decoded message with its type
                         msg_type = type(decoded_message).__name__
                         self.logger.info(
-                            f"Final syslog message ({msg_type}) from {host}:{port}: {message}"
+                            "Final syslog message",
+                            extra={
+                                "msg_type": msg_type,
+                                "host": host,
+                                "port": port,
+                                "message": message,
+                            },
                         )
                     except ImportError:
                         # If decoder is not available, just log the raw message
                         self.logger.info(
-                            f"Final syslog message from {host}:{port}: {message}"
+                            "Final syslog message",
+                            extra={"host": host, "port": port, "message": message},
                         )
                     except Exception as e:
                         # Log any parsing errors but don't fail
                         self.logger.warning(
-                            f"Failed to parse final syslog message from {host}:{port}: {e}"
+                            "Failed to parse final syslog message",
+                            extra={"host": host, "port": port, "error": e},
                         )
                         self.logger.info(
-                            f"Raw final syslog message from {host}:{port}: {message}"
+                            "Raw final syslog message",
+                            extra={"host": host, "port": port, "message": message},
                         )
 
             # Check if there's still data in the buffer that couldn't be parsed
             if self.framing_helper.buffer_size > 0:
                 self.logger.warning(
-                    f"Discarding {self.framing_helper.buffer_size} bytes of unparsed data from {host}:{port}"
+                    "Discarding unparsed data",
+                    extra={
+                        "buffer_size": self.framing_helper.buffer_size,
+                        "host": host,
+                        "port": port,
+                    },
                 )
         except Exception as e:
-            self.logger.error(f"Error processing final data from {host}:{port}: {e}")
+            self.logger.error(
+                "Error processing final data",
+                extra={"host": host, "port": port, "error": e},
+            )
 
         # Return False to close the transport
         return False
@@ -278,10 +313,13 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
 
         if exc:
             self.logger.warning(
-                f"TCP connection from {host}:{port} closed with error: {exc}"
+                "TCP connection closed with error",
+                extra={"host": host, "port": port, "error": exc},
             )
         else:
-            self.logger.info(f"TCP connection from {host}:{port} closed")
+            self.logger.info(
+                "TCP connection closed", extra={"host": host, "port": port}
+            )
 
         # Reset the framing helper and clear buffers
         self.framing_helper.reset()
