@@ -25,6 +25,9 @@ from ziggiz_courier_pickup_syslog.protocol.framing import (
     FramingMode,
 )
 
+# OpenTelemetry import
+from ziggiz_courier_pickup_syslog.telemetry import get_tracer
+
 
 class SyslogUnixProtocol(asyncio.BufferedProtocol):
     """
@@ -147,6 +150,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
             nbytes: The number of bytes of data in the buffer
         """
         peer_info = self.peername or "unknown"
+        tracer = get_tracer()
         self.logger.debug(
             "Received Unix Stream data", extra={"nbytes": nbytes, "peer": peer_info}
         )
@@ -157,11 +161,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
             return
         data = self._read_buffer[:nbytes]
         try:
-            # Add data to the helper and extract messages
             self.framing_helper.add_data(data)
-
-            # For transparent mode, we need to be careful to keep accumulating data
-            # until a complete message is available
             if self.framing_helper.framing_mode == FramingMode.TRANSPARENT or (
                 self.framing_helper.framing_mode == FramingMode.AUTO
                 and self.framing_helper._detected_mode == FramingMode.TRANSPARENT
@@ -170,28 +170,34 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                     "Buffer size after adding data",
                     extra={"buffer_size": self.framing_helper.buffer_size},
                 )
-
-            # Extract all complete messages that can be processed
             messages = self.framing_helper.extract_messages()
-
-            # Process complete messages
             found_message = False
             for msg in messages:
-                if msg:  # Skip empty messages
+                if msg:
                     found_message = True
                     message = msg.decode("utf-8", errors="replace")
-                    try:
-                        decoded_message = self.decoder.decode(message)
-                        if decoded_message is not None:
+                    with tracer.start_as_current_span(
+                        "syslog.unix.message",
+                        attributes={
+                            "net.transport": "unix",
+                            "peer": peer_info,
+                            "message.length": len(msg),
+                        },
+                    ):
+                        try:
+                            decoded_message = self.decoder.decode(message)
                             model_json = None
-                            msg_type = type(decoded_message).__name__
-                        else:
-                            model_json = None
-                            msg_type = "Unknown"
-                        if self.enable_model_json_output:
-                            try:
-                                model_json = None
-                                if decoded_message is not None:
+                            msg_type = (
+                                type(decoded_message).__name__
+                                if decoded_message is not None
+                                else "Unknown"
+                            )
+                            if (
+                                self.enable_model_json_output
+                                and decoded_message is not None
+                            ):
+                                try:
+                                    model_json = None
                                     if hasattr(
                                         decoded_message, "model_dump_json"
                                     ) and callable(
@@ -206,6 +212,16 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                                         getattr(decoded_message, "json", None)
                                     ):
                                         model_json = decoded_message.json(indent=2)
+                                    elif hasattr(decoded_message, "dict") and callable(
+                                        getattr(decoded_message, "dict", None)
+                                    ):
+                                        model_dict = decoded_message.dict()
+                                        # Standard library imports
+                                        import json
+
+                                        model_json = json.dumps(
+                                            model_dict, default=str, indent=2
+                                        )
                                     elif hasattr(
                                         decoded_message, "model_dump"
                                     ) and callable(
@@ -218,48 +234,39 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                                         model_json = json.dumps(
                                             model_dict, default=str, indent=2
                                         )
-                                    elif hasattr(decoded_message, "dict") and callable(
-                                        getattr(decoded_message, "dict", None)
-                                    ):
-                                        model_dict = decoded_message.dict()
-                                        # Standard library imports
-                                        import json
-
-                                        model_json = json.dumps(
-                                            model_dict, default=str, indent=2
+                                    if model_json:
+                                        self.logger.info(
+                                            "Decoded model JSON representation:",
+                                            extra={"decoded_model_json": model_json},
                                         )
-                                if model_json:
-                                    self.logger.info(
-                                        "Decoded model JSON representation:",
-                                        extra={"decoded_model_json": model_json},
+                                except Exception as json_err:
+                                    self.logger.warning(
+                                        "Failed to create JSON representation of decoded model",
+                                        extra={"error": str(json_err)},
                                     )
-                            except Exception as json_err:
-                                self.logger.warning(
-                                    "Failed to create JSON representation of decoded model",
-                                    extra={"error": str(json_err)},
-                                )
-                        self.logger.info(
-                            "Syslog message received",
-                            extra={
-                                "msg_type": msg_type,
-                                "peer": peer_info,
-                                "log_msg": message,
-                            },
-                        )
-                    except ImportError:
-                        self.logger.info(
-                            "Syslog message received",
-                            extra={"peer": peer_info, "log_msg": message},
-                        )
-                    except Exception as e:
-                        self.logger.warning(
-                            "Failed to parse syslog message",
-                            extra={"peer": peer_info, "error": str(e)},
-                        )
-                        self.logger.info(
-                            "Raw syslog message",
-                            extra={"peer": peer_info, "log_msg": message},
-                        )
+                            self.logger.info(
+                                "Syslog message received",
+                                extra={
+                                    "msg_type": msg_type,
+                                    "peer": peer_info,
+                                    "log_msg": message,
+                                },
+                            )
+                        except ImportError:
+                            self.logger.info(
+                                "Syslog message received",
+                                extra={"peer": peer_info, "log_msg": message},
+                            )
+                        except Exception as e:
+                            self.logger.warning(
+                                "Failed to parse syslog message",
+                                extra={"peer": peer_info, "error": str(e)},
+                            )
+                            self.logger.info(
+                                "Raw syslog message",
+                                extra={"peer": peer_info, "log_msg": message},
+                            )
+                        # Removed duplicate and mis-indented block
             # For test: if logger is a MagicMock and no message was found, emit a dummy log
             if (
                 not found_message
