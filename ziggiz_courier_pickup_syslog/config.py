@@ -224,6 +224,18 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> Config:
             raise
 
 
+class SafeExtraFormatter(logging.Formatter):
+    """
+    Custom formatter that substitutes missing extra fields with a blank string.
+    """
+
+    def format(self, record):
+        # Add any expected extra fields with blank default if missing
+        if not hasattr(record, "decoded_model_json"):
+            record.decoded_model_json = ""
+        return super().format(record)
+
+
 def configure_logging(config: Config) -> None:
     """
     Configure logging based on the provided configuration.
@@ -237,7 +249,7 @@ def configure_logging(config: Config) -> None:
 
     # Configure root logger
     level = getattr(logging, config.log_level, logging.INFO)
-    formatter = logging.Formatter(config.log_format, datefmt=config.log_date_format)
+    formatter = SafeExtraFormatter(config.log_format, datefmt=config.log_date_format)
 
     # Add console handler
     console_handler = logging.StreamHandler()

@@ -11,13 +11,13 @@ end_of_message_marker: "\n"
 max_message_length: 16384
 
 # Decoder configuration
-decoder_type: "auto"  # Auto-detect message format
+decoder_type: "rfc5424"  # Use RFC5424 decoder for demo/test message
 enable_model_json_output: true  # Enable JSON model output for the demo
 
 # Logging configuration - Set to DEBUG to show decoded messages
 # INFO level also needed to see the JSON model representation
 log_level: "DEBUG"
-log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"
+log_format: "%(asctime)s %(levelname)s %(name)s %(message)s\n%(decoded_model_json)s"
 log_date_format: "%Y-%m-%d %H:%M:%S"
 
 # Individual logger configurations
