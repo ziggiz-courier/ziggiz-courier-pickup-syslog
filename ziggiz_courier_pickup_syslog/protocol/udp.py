@@ -105,21 +105,36 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             # Handle both IPv4 (host, port) and IPv6 (host, port, flowinfo, scopeid)
             if len(sockname) == 2:
                 host, port = sockname
-                self.logger.debug(
-                    "UDP server started on address", extra={"host": host, "port": port}
+                self.logger.info(
+                    "UDP server started on address",
+                    extra={
+                        "net.transport": "ip_udp",
+                        "net.host.ip": host,
+                        "net.host.port": port,
+                    },
                 )
             elif len(sockname) == 4:  # IPv6 address
                 host, port, _, _ = sockname
-                self.logger.debug(
-                    "UDP server started on address", extra={"host": host, "port": port}
+                self.logger.info(
+                    "UDP server started on address",
+                    extra={
+                        "net.transport": "ip_udp",
+                        "net.host.ip": host,
+                        "net.host.port": port,
+                    },
                 )
             else:
                 host, port = "unknown", "unknown"
-                self.logger.debug(
-                    "UDP server started on address", extra={"host": host, "port": port}
+                self.logger.info(
+                    "UDP server started on address",
+                    extra={
+                        "net.transport": "ip_udp",
+                        "net.host.ip": host,
+                        "net.host.port": port,
+                    },
                 )
         else:
-            self.logger.debug("UDP server started")
+            self.logger.info("UDP server started", extra={"net.transport": "ip_udp"})
 
     def datagram_received(self, data: bytes, addr: Tuple[str, int]) -> None:
         """
@@ -249,8 +264,12 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
                  or None if the connection was closed without an error
         """
         if exc:
-            self.logger.warning(
-                "UDP server connection closed with error", extra={"error": exc}
+            self.logger.debug(
+                "UDP server connection closed with error",
+                extra={"net.transport": "ip_udp", "error": exc},
             )
         else:
-            self.logger.debug("UDP server connection closed")
+            self.logger.debug(
+                "UDP server connection closed",
+                extra={"net.transport": "ip_udp"},
+            )

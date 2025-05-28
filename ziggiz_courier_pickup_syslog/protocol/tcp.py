@@ -123,20 +123,33 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                 # Send a rejection message before closing
                 self.logger.warning(
                     "Rejected TCP connection (not in allowed IPs)",
-                    extra={"host": host, "port": port},
+                    extra={
+                        "net.transport": "ip_tcp",
+                        "net.peer.ip": host,
+                        "net.peer.port": port,
+                    },
                 )
                 # We can't send a proper rejection message in TCP, so just close the connection
                 transport.close()
             else:  # "drop"
                 self.logger.warning(
                     "Dropped TCP connection (not in allowed IPs)",
-                    extra={"host": host, "port": port},
+                    extra={
+                        "net.transport": "ip_tcp",
+                        "net.peer.ip": host,
+                        "net.peer.port": port,
+                    },
                 )
                 transport.close()
             return
 
         self.logger.info(
-            "TCP connection established", extra={"host": host, "port": port}
+            "TCP connection established",
+            extra={
+                "net.transport": "ip_tcp",
+                "net.peer.ip": host,
+                "net.peer.port": port,
+            },
         )
 
     def get_buffer(self, sizehint: int) -> bytearray:
@@ -405,13 +418,23 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
         host, port = self.peername if self.peername else ("unknown", "unknown")
 
         if exc:
-            self.logger.warning(
+            self.logger.debug(
                 "TCP connection closed with error",
-                extra={"host": host, "port": port, "error": exc},
+                extra={
+                    "net.transport": "ip_tcp",
+                    "net.peer.ip": host,
+                    "net.peer.port": port,
+                    "error": exc,
+                },
             )
         else:
-            self.logger.info(
-                "TCP connection closed", extra={"host": host, "port": port}
+            self.logger.debug(
+                "TCP connection closed",
+                extra={
+                    "net.transport": "ip_tcp",
+                    "net.peer.ip": host,
+                    "net.peer.port": port,
+                },
             )
 
         # Reset the framing helper and clear buffers

@@ -215,7 +215,7 @@ class TestSyslogTCPProtocol:
     @pytest.mark.unit
     def test_connection_lost_with_exception(self, caplog):
         """Test connection_lost method with an exception."""
-        caplog.set_level(logging.WARNING)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogTCPProtocol()
         protocol.peername = ("192.168.1.1", 12345)
         protocol.transport = MagicMock()
@@ -224,7 +224,7 @@ class TestSyslogTCPProtocol:
         test_exception = Exception("Connection error")
         protocol.connection_lost(test_exception)
 
-        # Check that the warning is properly logged
+        # Check that the debug log is properly logged
         assert "TCP connection closed with error" in caplog.text
         # Check that resources are cleaned up
         assert protocol._read_buffer is None
@@ -233,7 +233,7 @@ class TestSyslogTCPProtocol:
     @pytest.mark.unit
     def test_connection_lost_without_exception(self, caplog):
         """Test connection_lost method without an exception."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogTCPProtocol()
         protocol.peername = ("192.168.1.1", 12345)
         protocol.transport = MagicMock()
@@ -241,7 +241,7 @@ class TestSyslogTCPProtocol:
         # Call connection_lost without an exception
         protocol.connection_lost(None)
 
-        # Check that the info is properly logged
+        # Check that the debug log is properly logged
         assert "TCP connection closed" in caplog.text
         # Check that resources are cleaned up
         assert protocol._read_buffer is None

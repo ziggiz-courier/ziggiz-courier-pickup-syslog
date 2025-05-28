@@ -211,14 +211,24 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                 # Send a rejection message before closing
                 self.logger.warning(
                     "Rejected TLS connection (not in allowed IPs)",
-                    extra={"host": host, "port": port},
+                    extra={
+                        "net.transport": "ip_tcp",
+                        "net.peer.ip": host,
+                        "net.peer.port": port,
+                        "tls": True,
+                    },
                 )
                 # We can't send a proper rejection message in TLS, so just close the connection
                 transport.close()
             else:  # "drop"
                 self.logger.warning(
                     "Dropped TLS connection (not in allowed IPs)",
-                    extra={"host": host, "port": port},
+                    extra={
+                        "net.transport": "ip_tcp",
+                        "net.peer.ip": host,
+                        "net.peer.port": port,
+                        "tls": True,
+                    },
                 )
                 transport.close()
             return
@@ -233,11 +243,13 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
             self.logger.info(
                 "TLS connection established",
                 extra={
-                    "host": host,
-                    "port": port,
-                    "version": version,
-                    "cipher": cipher[0],
-                    "bits": cipher[2],
+                    "net.transport": "ip_tcp",
+                    "net.peer.ip": host,
+                    "net.peer.port": port,
+                    "tls": True,
+                    "tls.version": version,
+                    "tls.cipher": cipher[0],
+                    "tls.bits": cipher[2],
                 },
             )
 
@@ -251,19 +263,72 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                     if not self.cert_verifier.verify_certificate(ssl_object):
                         self.logger.warning(
                             "Client certificate failed attribute verification",
-                            extra={"host": host, "port": port},
+                            extra={
+                                "net.transport": "ip_tcp",
+                                "net.peer.ip": host,
+                                "net.peer.port": port,
+                                "tls": True,
+                            },
                         )
                         # We don't close the connection here because the SSL handshake has already
                         # completed. The application layer will need to decide how to handle this.
             else:
                 self.logger.warning(
-                    "No client certificate provided", extra={"host": host, "port": port}
+                    "No client certificate provided",
+                    extra={
+                        "net.transport": "ip_tcp",
+                        "net.peer.ip": host,
+                        "net.peer.port": port,
+                        "tls": True,
+                    },
                 )
         else:
             self.logger.warning(
                 "TLS connection established but SSL information is not available",
-                extra={"host": host, "port": port},
+                extra={
+                    "net.transport": "ip_tcp",
+                    "net.peer.ip": host,
+                    "net.peer.port": port,
+                    "tls": True,
+                },
             )
+
+    def connection_lost(self, exc: Optional[Exception]) -> None:
+        """
+        Called when the connection is lost or closed.
+
+        Args:
+            exc: The exception that caused the connection to close,
+                 or None if the connection was closed without an error
+        """
+        host, port = self.peername if self.peername else ("unknown", "unknown")
+
+        if exc:
+            self.logger.debug(
+                "TLS connection closed with error",
+                extra={
+                    "net.transport": "ip_tcp",
+                    "net.peer.ip": host,
+                    "net.peer.port": port,
+                    "tls": True,
+                    "error": exc,
+                },
+            )
+        else:
+            self.logger.debug(
+                "TLS connection closed",
+                extra={
+                    "net.transport": "ip_tcp",
+                    "net.peer.ip": host,
+                    "net.peer.port": port,
+                    "tls": True,
+                },
+            )
+
+        # Reset the framing helper and clear buffers
+        self.framing_helper.reset()
+        self._read_buffer = None
+        self.transport = None
 
     def _log_certificate_info(
         self, cert: Dict, host: str, port: Union[str, int]

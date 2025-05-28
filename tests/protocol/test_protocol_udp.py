@@ -235,14 +235,14 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_connection_lost_with_exception(self, caplog):
         """Test connection_lost method with an exception."""
-        caplog.set_level(logging.WARNING)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Call connection_lost with a test exception
         test_exception = Exception("Connection error")
         protocol.connection_lost(test_exception)
 
-        # Check that the warning is properly logged
+        # Check that the debug log is properly logged
         assert "UDP server connection closed with error" in caplog.text
 
     @pytest.mark.unit
