@@ -60,7 +60,7 @@ class TestSyslogTCPProtocol:
     @pytest.mark.unit
     def test_connection_made(self, caplog):
         """Test connection_made method."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogTCPProtocol()
 
         # Create a mock transport
@@ -79,7 +79,7 @@ class TestSyslogTCPProtocol:
     @pytest.mark.unit
     def test_connection_made_unknown_peer(self, caplog):
         """Test connection_made method when peer info is not available."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogTCPProtocol()
 
         # Create a mock transport without peer info
@@ -114,7 +114,7 @@ class TestSyslogTCPProtocol:
     @pytest.mark.unit
     def test_buffer_updated_with_decoder(self, caplog):
         """Test buffer_updated method with decoder."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogTCPProtocol()
         protocol.peername = ("192.168.1.1", 12345)
 

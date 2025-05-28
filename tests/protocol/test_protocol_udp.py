@@ -49,7 +49,7 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_connection_made(self, caplog):
         """Test connection_made method."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Create a mock transport
@@ -68,7 +68,7 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_connection_made_ipv6(self, caplog):
         """Test connection_made method with IPv6 address."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Create a mock transport with IPv6 socket info
@@ -88,7 +88,7 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_connection_made_no_socket_info(self, caplog):
         """Test connection_made method when socket info is not available."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Create a mock transport without socket info
@@ -105,7 +105,7 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_datagram_received(self, caplog):
         """Test datagram_received method."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Patch the decoder's decode method
@@ -128,7 +128,7 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_datagram_received_rfc5424(self, caplog):
         """Test datagram_received method with RFC5424 format message."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Patch the decoder's decode method
@@ -152,7 +152,7 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_datagram_received_ipv6(self, caplog):
         """Test datagram_received method with IPv6 address."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Patch the decoder's decode method
@@ -199,7 +199,7 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_datagram_received_import_error(self, caplog):
         """Test datagram_received method when decoder is not available."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Patch DecoderFactory.decode_message to raise ImportError
@@ -215,7 +215,7 @@ class TestSyslogUDPProtocol:
             addr = ("192.168.1.4", 54324)
             protocol.datagram_received(data, addr)
 
-            # Check that the message was logged without type information
+            # Check that the message was logged without type information (now at debug level)
             assert "Syslog message received" in caplog.text
             assert "EventEnvelopeBaseModel" not in caplog.text
 
@@ -248,13 +248,13 @@ class TestSyslogUDPProtocol:
     @pytest.mark.unit
     def test_connection_lost_without_exception(self, caplog):
         """Test connection_lost method without an exception."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogUDPProtocol()
 
         # Call connection_lost without an exception
         protocol.connection_lost(None)
 
-        # Check that the info is properly logged
+        # Check that the debug log is properly logged
         assert "UDP server connection closed" in caplog.text
 
     @pytest.mark.unit

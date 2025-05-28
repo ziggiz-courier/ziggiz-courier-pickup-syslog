@@ -341,7 +341,7 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                                     else:
                                         model_json = None
                                     if model_json:
-                                        self.logger.info(
+                                        self.logger.debug(
                                             "Decoded model JSON representation:",
                                             extra={"decoded_model_json": model_json},
                                         )

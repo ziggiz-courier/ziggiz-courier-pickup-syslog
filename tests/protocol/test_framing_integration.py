@@ -118,7 +118,7 @@ class TestProtocolFramingIntegration:
 
         # Check that the message was processed
         found = False
-        for call in unix_protocol.logger.info.call_args_list:
+        for call in unix_protocol.logger.debug.call_args_list:
             args, kwargs = call
             if args and args[0] == "Syslog message received":
                 extra = kwargs.get("extra", {})
@@ -131,7 +131,7 @@ class TestProtocolFramingIntegration:
                     break
         assert (
             found
-        ), f"Expected call to logger.info with correct message, got: {unix_protocol.logger.info.call_args_list}"
+        ), f"Expected call to logger.debug with correct message, got: {unix_protocol.logger.debug.call_args_list}"
 
     @pytest.mark.asyncio
     async def test_server_protocol_factory(self):

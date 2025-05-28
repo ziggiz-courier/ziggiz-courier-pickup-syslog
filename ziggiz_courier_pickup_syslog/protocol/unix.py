@@ -123,7 +123,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
         else:
             peer_info = self.peername or "unknown"
 
-        self.logger.info(
+        self.logger.debug(
             "Unix Stream connection established", extra={"peer": peer_info}
         )
 
@@ -239,7 +239,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                                             model_dict, default=str, indent=2
                                         )
                                     if model_json:
-                                        self.logger.info(
+                                        self.logger.debug(
                                             "Decoded model JSON representation:",
                                             extra={"decoded_model_json": model_json},
                                         )
@@ -248,7 +248,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                                         "Failed to create JSON representation of decoded model",
                                         extra={"error": str(json_err)},
                                     )
-                            self.logger.info(
+                            self.logger.debug(
                                 "Syslog message received",
                                 extra={
                                     "msg_type": msg_type,
@@ -270,14 +270,13 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                                 "Raw syslog message",
                                 extra={"peer": peer_info, "log_msg": message},
                             )
-                        # Removed duplicate and mis-indented block
             # For test: if logger is a MagicMock and no message was found, emit a dummy log
             if (
                 not found_message
-                and hasattr(self.logger, "info")
+                and hasattr(self.logger, "debug")
                 and getattr(self, "_test_force_log", False)
             ):
-                self.logger.info(
+                self.logger.debug(
                     "Syslog message received",
                     extra={
                         "msg_type": "Unknown",
@@ -296,6 +295,11 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                 self.logger.warning("Closing connection due to framing error")
                 if self.transport:
                     self.transport.close()
+        except Exception as e:
+            self.logger.error(
+                "Unexpected error in buffer_updated",
+                extra={"peer": peer_info, "error": str(e)},
+            )
 
     def eof_received(self) -> bool:
         """
@@ -363,7 +367,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                                             model_dict, default=str, indent=2
                                         )
                                 if model_json:
-                                    self.logger.info(
+                                    self.logger.debug(
                                         "Decoded model JSON representation:",
                                         extra={"decoded_model_json": model_json},
                                     )
@@ -436,7 +440,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                                     else:
                                         model_json = None
                                     if model_json:
-                                        self.logger.info(
+                                        self.logger.debug(
                                             "Decoded model JSON representation:",
                                             extra={"decoded_model_json": model_json},
                                         )
@@ -590,7 +594,7 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
                 {"peer": peer_info, "error": exc},
             )
         else:
-            self.logger.info(
+            self.logger.debug(
                 "Unix Stream connection from %(peer)s closed", {"peer": peer_info}
             )
 

@@ -45,7 +45,7 @@ class TestSyslogTLSProtocol:
     @pytest.mark.unit
     def test_connection_made_with_ssl(self, caplog):
         """Test connection_made method with SSL information."""
-        caplog.set_level(logging.INFO)
+        caplog.set_level(logging.DEBUG)
         protocol = SyslogTLSProtocol()
 
         # Create a mock transport with SSL information

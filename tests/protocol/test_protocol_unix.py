@@ -55,7 +55,7 @@ def test_init():
 @pytest.mark.unit
 def test_connection_made_with_peer_creds(caplog):
     """Test connection_made method with peer credentials."""
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
     protocol = SyslogUnixProtocol()
 
     # Create a mock transport with peer credentials
@@ -78,7 +78,7 @@ def test_connection_made_with_peer_creds(caplog):
 @pytest.mark.unit
 def test_connection_made_without_peer_creds(caplog):
     """Test connection_made method without peer credentials."""
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
     protocol = SyslogUnixProtocol()
 
     # Create a mock transport without peer credentials
@@ -101,7 +101,7 @@ def test_connection_made_without_peer_creds(caplog):
 @pytest.mark.unit
 def test_connection_made_unknown_peer(caplog):
     """Test connection_made method with unknown peer."""
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
     protocol = SyslogUnixProtocol()
 
     # Create a mock transport without peer info
@@ -128,7 +128,7 @@ async def test_connection_made(unix_protocol):
 
     assert unix_protocol.transport == transport
     assert unix_protocol.peername == "test-peer"
-    unix_protocol.logger.info.assert_called_once()
+    unix_protocol.logger.debug.assert_called_once()
 
 
 @pytest.mark.integration
@@ -157,15 +157,15 @@ async def test_buffer_updated(unix_protocol):
     # Call buffer_updated with the length of our test data
     unix_protocol.buffer_updated(len(test_data))
 
-    # Check that messages were processed
-    assert unix_protocol.logger.info.call_count == 2
+    # Check that messages were processed (now at debug level)
+    assert unix_protocol.logger.debug.call_count >= 2
     assert unix_protocol.buffer == bytearray()
 
 
 @pytest.mark.unit
 def test_buffer_updated_with_decoder(caplog):
     """Test buffer_updated method with decoder."""
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
     protocol = SyslogUnixProtocol()
     protocol.peername = "/var/run/syslog.sock"
 
@@ -325,7 +325,7 @@ async def test_connection_lost(unix_protocol):
     # Test without exception
     unix_protocol.connection_lost(None)
 
-    assert unix_protocol.logger.info.called
+    assert unix_protocol.logger.debug.called
     assert unix_protocol.buffer == bytearray()
     assert unix_protocol._read_buffer is None
     assert unix_protocol.transport is None

@@ -204,9 +204,15 @@ class TestUDPProtocolIPFiltering(unittest.TestCase):
             with patch.object(protocol.decoder, "decode") as mock_decode:
                 protocol.datagram_received(b"test message", ("192.168.1.1", 12345))
 
-                # Verify that the datagram was processed
-                mock_debug.assert_called_once()
-                self.assertIn("Received UDP datagram", mock_debug.call_args[0][0])
+                # Verify that the datagram was processed (now expect at least two debug calls)
+                assert mock_debug.call_count >= 2
+                found = any(
+                    call_args[0][0] == "Received UDP datagram"
+                    for call_args in mock_debug.call_args_list
+                )
+                self.assertTrue(
+                    found, "Expected a debug log for 'Received UDP datagram'"
+                )
                 mock_decode.assert_called_once()
 
     def test_udp_datagram_received_denied_ip_drop(self):

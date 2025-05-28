@@ -1158,6 +1158,18 @@ files = [
 ]
 
 [[package]]
+name = "py-cpuinfo"
+version = "9.0.0"
+description = "Get CPU info with pure Python"
+optional = false
+python-versions = "*"
+groups = ["dev"]
+files = [
+    {file = "py-cpuinfo-9.0.0.tar.gz", hash = "sha256:3cdbbf3fac90dc6f118bfd64384f309edeadd902d7c8fb17f02ffa1fc3f49690"},
+    {file = "py_cpuinfo-9.0.0-py3-none-any.whl", hash = "sha256:859625bc251f64e21f077d099d4162689c762b5d6a4c3c97553d56241c9674d5"},
+]
+
+[[package]]
 name = "pycodestyle"
 version = "2.13.0"
 description = "Python style guide checker"
@@ -1375,6 +1387,27 @@ typing-extensions = {version = ">=4.12", markers = "python_version < \"3.10\""}
 [package.extras]
 docs = ["sphinx (>=5.3)", "sphinx-rtd-theme (>=1)"]
 testing = ["coverage (>=6.2)", "hypothesis (>=5.7.1)"]
+
+[[package]]
+name = "pytest-benchmark"
+version = "5.1.0"
+description = "A ``pytest`` fixture for benchmarking code. It will group the tests into rounds that are calibrated to the chosen timer."
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "pytest-benchmark-5.1.0.tar.gz", hash = "sha256:9ea661cdc292e8231f7cd4c10b0319e56a2118e2c09d9f50e1b3d150d2aca105"},
+    {file = "pytest_benchmark-5.1.0-py3-none-any.whl", hash = "sha256:922de2dfa3033c227c96da942d1878191afa135a29485fb942e85dff1c592c89"},
+]
+
+[package.dependencies]
+py-cpuinfo = "*"
+pytest = ">=8.1"
+
+[package.extras]
+aspect = ["aspectlib"]
+elasticsearch = ["elasticsearch"]
+histogram = ["pygal", "pygaljs", "setuptools"]
 
 [[package]]
 name = "pytest-cov"
@@ -1784,7 +1817,7 @@ files = [
 
 [[package]]
 name = "ziggiz-courier-handler-core"
-version = "0.3.0"
+version = "0.4.0"
 description = "Data processing library for decoding, transforming, and encoding data"
 optional = false
 python-versions = ">=3.9,<3.14"
@@ -1802,8 +1835,8 @@ xmltodict = "^0.14"
 [package.source]
 type = "git"
 url = "https://github.com/ziggiz-courier/ziggiz-courier-handler-core.git"
-reference = "v0.3.0"
-resolved_reference = "19e70e0947246c4864af17088cd44b35097b9c1d"
+reference = "v0.4.0"
+resolved_reference = "06410374e876516dcf4f33bb7d83acf5a7d9bcc5"
 
 [[package]]
 name = "zipp"
@@ -1828,4 +1861,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<3.14"
-content-hash = "751369e7954d2dfa3af0ca576bab04515377504c5edcce551ff68ffbacd2f649"
+content-hash = "df89d31e62206ccb965fa83d957af4c50034d7c3daf3c4fae74d7f3619202d8a"

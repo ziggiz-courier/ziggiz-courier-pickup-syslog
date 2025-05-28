@@ -101,7 +101,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                                             model_dict, default=str, indent=2
                                         )
                                     if model_json:
-                                        self.logger.info(
+                                        self.logger.debug(
                                             "Decoded model JSON representation:",
                                             extra={"decoded_model_json": model_json},
                                         )
@@ -115,7 +115,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                                 if decoded_message is not None
                                 else "Unknown"
                             )
-                            self.logger.info(
+                            self.logger.debug(
                                 "Syslog message received",
                                 extra={
                                     "msg_type": msg_type,

@@ -105,15 +105,21 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             # Handle both IPv4 (host, port) and IPv6 (host, port, flowinfo, scopeid)
             if len(sockname) == 2:
                 host, port = sockname
+                self.logger.debug(
+                    "UDP server started on address", extra={"host": host, "port": port}
+                )
             elif len(sockname) == 4:  # IPv6 address
                 host, port, _, _ = sockname
+                self.logger.debug(
+                    "UDP server started on address", extra={"host": host, "port": port}
+                )
             else:
                 host, port = "unknown", "unknown"
-            self.logger.info(
-                "UDP server started on address", extra={"host": host, "port": port}
-            )
+                self.logger.debug(
+                    "UDP server started on address", extra={"host": host, "port": port}
+                )
         else:
-            self.logger.info("UDP server started")
+            self.logger.debug("UDP server started")
 
     def datagram_received(self, data: bytes, addr: Tuple[str, int]) -> None:
         """
@@ -163,8 +169,9 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         ):
             try:
                 decoded_message = self.decoder.decode(message)
-                if self.enable_model_json_output:
+                if self.enable_model_json_output and decoded_message is not None:
                     try:
+                        model_json = None
                         if hasattr(decoded_message, "model_dump_json") and callable(
                             getattr(decoded_message, "model_dump_json", None)
                         ):
@@ -189,10 +196,8 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
                             import json
 
                             model_json = json.dumps(model_dict, default=str, indent=2)
-                        else:
-                            model_json = None
                         if model_json:
-                            self.logger.info(
+                            self.logger.debug(
                                 "Decoded model JSON representation:",
                                 extra={"decoded_model_json": model_json},
                             )
@@ -202,7 +207,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
                             extra={"error": str(json_err)},
                         )
                 msg_type = type(decoded_message).__name__
-                self.logger.info(
+                self.logger.debug(
                     "Syslog message received",
                     extra={
                         "msg_type": msg_type,
@@ -248,4 +253,4 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
                 "UDP server connection closed with error", extra={"error": exc}
             )
         else:
-            self.logger.info("UDP server connection closed")
+            self.logger.debug("UDP server connection closed")
