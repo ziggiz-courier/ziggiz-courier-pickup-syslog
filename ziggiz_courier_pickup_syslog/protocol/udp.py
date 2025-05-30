@@ -9,17 +9,20 @@
 # https://github.com/ziggiz-courier/ziggiz-courier-core-data-processing/blob/main/LICENSE
 # UDP Protocol implementation for syslog server
 
+
 # Standard library imports
 import asyncio
+import json
 import logging
 
 from typing import Any, Dict, List, Optional, Tuple
 
+# Third-party imports
+from opentelemetry.trace import SpanKind
+
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
 from ziggiz_courier_pickup_syslog.protocol.ip_filter import IPFilter
-
-# OpenTelemetry import
 from ziggiz_courier_pickup_syslog.telemetry import get_tracer
 
 
@@ -144,6 +147,7 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
             data: The datagram data
             addr: The address (host, port) of the sender
         """
+
         host, port = addr
         tracer = get_tracer()
 
@@ -169,8 +173,6 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         # Decode the data
         message = data.decode("utf-8", errors="replace")
         # Start a span for each UDP message
-        # Third-party imports
-        from opentelemetry.trace import SpanKind
 
         with tracer.start_as_current_span(
             "syslog.udp.message",
@@ -199,17 +201,11 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
                             getattr(decoded_message, "dict", None)
                         ):
                             model_dict = decoded_message.dict()
-                            # Standard library imports
-                            import json
-
                             model_json = json.dumps(model_dict, default=str, indent=2)
                         elif hasattr(decoded_message, "model_dump") and callable(
                             getattr(decoded_message, "model_dump", None)
                         ):
                             model_dict = decoded_message.model_dump()
-                            # Standard library imports
-                            import json
-
                             model_json = json.dumps(model_dict, default=str, indent=2)
                         if model_json:
                             self.logger.debug(

@@ -9,12 +9,16 @@
 # https://github.com/ziggiz-courier/ziggiz-courier-core-data-processing/blob/main/LICENSE
 # TLS Protocol implementation for syslog server with fixed framing
 
+
 # Standard library imports
 import asyncio
 import logging
 import ssl
 
 from typing import Any, Dict, List, Optional, Tuple, Union
+
+# Third-party imports
+from opentelemetry.trace import SpanKind
 
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.cert_verify import (
@@ -43,7 +47,6 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                 if msg:
                     message = msg.decode("utf-8", errors="replace")
                     # Third-party imports
-                    from opentelemetry.trace import SpanKind
 
                     with tracer.start_as_current_span(
                         "syslog.tls.message",

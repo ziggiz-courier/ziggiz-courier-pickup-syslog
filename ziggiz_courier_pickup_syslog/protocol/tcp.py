@@ -15,6 +15,9 @@ import logging
 
 from typing import Any, Dict, List, Optional, Tuple
 
+# Third-party imports
+from opentelemetry.trace import SpanKind
+
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
 
@@ -210,7 +213,6 @@ class SyslogTCPProtocol(asyncio.BufferedProtocol):
                     message = msg.decode("utf-8", errors="replace")
                     # Start a span for each message, attach connection info as attributes
                     # Third-party imports
-                    from opentelemetry.trace import SpanKind
 
                     with tracer.start_as_current_span(
                         "syslog.tcp.message",
