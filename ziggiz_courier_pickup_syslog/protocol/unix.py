@@ -9,102 +9,62 @@
 # https://github.com/ziggiz-courier/ziggiz-courier-core-data-processing/blob/main/LICENSE
 # Unix Stream Protocol implementation for syslog server
 
+
 # Standard library imports
 import asyncio
-import logging
 
-from typing import Any, Dict, List, Optional
-
-# Third-party imports
-from opentelemetry.trace import SpanKind
+from typing import Optional
 
 # Local/package imports
-from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
-
-# Local imports
+from ziggiz_courier_pickup_syslog.protocol.base_stream import BaseSyslogBufferedProtocol
 from ziggiz_courier_pickup_syslog.protocol.framing import (
-    FramingDetectionError,
-    FramingHelper,
     FramingMode,
 )
 
-# OpenTelemetry import
-from ziggiz_courier_pickup_syslog.telemetry import get_tracer
 
-
-class SyslogUnixProtocol(asyncio.BufferedProtocol):
+class SyslogUnixProtocol(BaseSyslogBufferedProtocol):
     """
     Unix Stream Protocol implementation for handling syslog messages.
-
-    This class implements the asyncio BufferedProtocol for receiving
-    and handling Unix Stream syslog messages efficiently, using lower-level
-    buffer operations to minimize data copying.
+    Inherits shared logic from BaseSyslogBufferedProtocol.
     """
 
     def __init__(
         self,
         framing_mode: str = "auto",
-        end_of_message_marker: str = "\\n",
+        end_of_message_marker: str = "\n",
         max_message_length: int = 16 * 1024,
         decoder_type: str = "auto",
-        allowed_ips: Optional[List[str]] = None,  # Not used for Unix sockets
-        deny_action: str = "drop",  # Not used for Unix sockets
         enable_model_json_output: bool = False,
     ):
-        """
-        Initialize the Unix Stream protocol.
-
-        Args:
-            framing_mode: The framing mode to use ("auto", "transparent", or "non_transparent")
-            end_of_message_marker: The marker indicating end of message for non-transparent framing
-            max_message_length: Maximum message length for non-transparent framing
-            decoder_type: The type of syslog decoder to use ("auto", "rfc3164", "rfc5424", or "base")
-            allowed_ips: Not used for Unix sockets
-            deny_action: Not used for Unix sockets
-            enable_model_json_output: Whether to generate JSON output of decoded models (for demos/debugging)
-        """
-        self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.unix")
-        self.transport: Optional[asyncio.BaseTransport] = None
         self.peername: Optional[str] = None
-        self.decoder_type = decoder_type
-        self.enable_model_json_output = enable_model_json_output
-
-        # Connection-specific cache for the decoder
-        self.connection_cache: Dict[Any, Any] = {}
-        # Event parsing cache for test compatibility
-        self.event_parsing_cache: Dict[Any, Any] = {}
-        # Create a decoder instance scoped to this connection
-        self.decoder = DecoderFactory.create_decoder(
-            self.decoder_type,
-            connection_cache=self.connection_cache,
+        super().__init__(
+            framing_mode=framing_mode,
+            end_of_message_marker=end_of_message_marker,
+            max_message_length=max_message_length,
+            decoder_type=decoder_type,
+            enable_model_json_output=enable_model_json_output,
         )
-        # For testability: if logger is a MagicMock, always emit a message on buffer_updated
-        self._test_force_log = False
 
-        # Create the framing helper
-        try:
-            # Convert string framing mode to enum
-            framing_enum = FramingMode(framing_mode)
-            # Parse the end of message marker
-            end_marker_bytes = FramingHelper.parse_end_of_msg_marker(
-                end_of_message_marker
-            )
+    @property
+    def logger_name(self) -> str:
+        return "ziggiz_courier_pickup_syslog.protocol.unix"
 
-            self.framing_helper = FramingHelper(
-                framing_mode=framing_enum,
-                end_of_msg_marker=end_marker_bytes,
-                max_msg_length=max_message_length,
-                logger=self.logger,
-            )
-        except (ValueError, FramingDetectionError) as e:
-            self.logger.error("Error setting up framing", extra={"error": e})
-            # Fall back to default settings
-            self.framing_helper = FramingHelper(logger=self.logger)
+    def get_peer_info(self):
+        # For Unix sockets, peername is a file path if available
+        if self.peername:
+            return self.peername
+        return "unknown"
 
-        # This is the buffer provided by the transport for reading incoming data
-        self._read_buffer: Optional[bytearray] = None
-        # Maximum size to allocate for the incoming buffer
-        self.max_buffer_size = 65536  # 64KB
+    @property
+    def span_name(self) -> str:
+        return "syslog.unix.message"
+
+    def span_attributes(self, peer_info, msg) -> dict:
+        return {
+            "net.transport": "unix",
+            "peer": peer_info,
+            "message.length": len(msg),
+        }
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """
@@ -144,164 +104,6 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
         buffer_size = min(sizehint, self.max_buffer_size)
         self._read_buffer = bytearray(buffer_size)
         return self._read_buffer
-
-    def buffer_updated(self, nbytes: int) -> None:
-        """
-        Called when the buffer has been updated with new data.
-
-        Args:
-            nbytes: The number of bytes of data in the buffer
-        """
-        peer_info = self.peername or "unknown"
-        tracer = get_tracer()
-        self.logger.debug(
-            "Received Unix Stream data", extra={"nbytes": nbytes, "peer": peer_info}
-        )
-
-        # Add the received data to the framing helper
-        if self._read_buffer is None:
-            self.logger.error("Buffer is None in buffer_updated")
-            return
-        data = self._read_buffer[:nbytes]
-        try:
-            self.framing_helper.add_data(data)
-            if self.framing_helper.framing_mode == FramingMode.TRANSPARENT or (
-                self.framing_helper.framing_mode == FramingMode.AUTO
-                and self.framing_helper._detected_mode == FramingMode.TRANSPARENT
-            ):
-                self.logger.debug(
-                    "Buffer size after adding data",
-                    extra={"buffer_size": self.framing_helper.buffer_size},
-                )
-            messages = self.framing_helper.extract_messages()
-            found_message = False
-            for msg in messages:
-                if msg:
-                    found_message = True
-                    message = msg.decode("utf-8", errors="replace")
-                    # Third-party imports
-
-                    with tracer.start_as_current_span(
-                        "syslog.unix.message",
-                        kind=SpanKind.SERVER,
-                        attributes={
-                            "net.transport": "unix",
-                            "peer": peer_info,
-                            "message.length": len(msg),
-                        },
-                    ):
-                        try:
-                            decoded_message = self.decoder.decode(message)
-                            model_json = None
-                            msg_type = (
-                                type(decoded_message).__name__
-                                if decoded_message is not None
-                                else "Unknown"
-                            )
-                            if (
-                                self.enable_model_json_output
-                                and decoded_message is not None
-                            ):
-                                try:
-                                    model_json = None
-                                    if hasattr(
-                                        decoded_message, "model_dump_json"
-                                    ) and callable(
-                                        getattr(
-                                            decoded_message, "model_dump_json", None
-                                        )
-                                    ):
-                                        model_json = decoded_message.model_dump_json(
-                                            indent=2
-                                        )
-                                    elif hasattr(decoded_message, "json") and callable(
-                                        getattr(decoded_message, "json", None)
-                                    ):
-                                        model_json = decoded_message.json(indent=2)
-                                    elif hasattr(decoded_message, "dict") and callable(
-                                        getattr(decoded_message, "dict", None)
-                                    ):
-                                        model_dict = decoded_message.dict()
-                                        # Standard library imports
-                                        import json
-
-                                        model_json = json.dumps(
-                                            model_dict, default=str, indent=2
-                                        )
-                                    elif hasattr(
-                                        decoded_message, "model_dump"
-                                    ) and callable(
-                                        getattr(decoded_message, "model_dump", None)
-                                    ):
-                                        model_dict = decoded_message.model_dump()
-                                        # Standard library imports
-                                        import json
-
-                                        model_json = json.dumps(
-                                            model_dict, default=str, indent=2
-                                        )
-                                    if model_json:
-                                        self.logger.debug(
-                                            "Decoded model JSON representation:",
-                                            extra={"decoded_model_json": model_json},
-                                        )
-                                except Exception as json_err:
-                                    self.logger.warning(
-                                        "Failed to create JSON representation of decoded model",
-                                        extra={"error": str(json_err)},
-                                    )
-                            self.logger.debug(
-                                "Syslog message received",
-                                extra={
-                                    "msg_type": msg_type,
-                                    "peer": peer_info,
-                                    "log_msg": message,
-                                },
-                            )
-                        except ImportError:
-                            self.logger.info(
-                                "Syslog message received",
-                                extra={"peer": peer_info, "log_msg": message},
-                            )
-                        except Exception as e:
-                            self.logger.warning(
-                                "Failed to parse syslog message",
-                                extra={"peer": peer_info, "error": str(e)},
-                            )
-                            self.logger.info(
-                                "Raw syslog message",
-                                extra={"peer": peer_info, "log_msg": message},
-                            )
-            # For test: if logger is a MagicMock and no message was found, emit a dummy log
-            if (
-                not found_message
-                and hasattr(self.logger, "debug")
-                and getattr(self, "_test_force_log", False)
-            ):
-                self.logger.debug(
-                    "Syslog message received",
-                    extra={
-                        "msg_type": "Unknown",
-                        "peer": peer_info,
-                        "log_msg": (
-                            self._read_buffer.decode("utf-8", errors="replace")
-                            if self._read_buffer
-                            else ""
-                        ),
-                    },
-                )
-        except FramingDetectionError as e:
-            self.logger.error("Framing error", extra={"peer": peer_info, "error": e})
-            # If in transparent mode and detection fails, close the connection
-            if self.framing_helper.framing_mode == FramingMode.TRANSPARENT:
-                self.logger.warning("Closing connection due to framing error")
-                if self.transport:
-                    self.transport.close()
-        except Exception as e:
-            self.logger.error(
-                "Unexpected error in buffer_updated",
-                extra={"peer": peer_info, "error": str(e)},
-            )
 
     def eof_received(self) -> bool:
         """
@@ -604,15 +406,3 @@ class SyslogUnixProtocol(asyncio.BufferedProtocol):
         self.framing_helper.reset()
         self._read_buffer = None
         self.transport = None
-
-    # Add an alias for the buffer property to support legacy tests
-    @property
-    def buffer(self) -> bytes:
-        """Compatibility property for accessing the framing helper's buffer."""
-        return self.framing_helper._buffer
-
-    @buffer.setter
-    def buffer(self, value: bytes) -> None:
-        """Setter for the buffer property to support legacy tests."""
-        self.framing_helper._buffer.clear()
-        self.framing_helper._buffer.extend(value)

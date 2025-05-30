@@ -282,10 +282,10 @@ class TestSyslogTCPProtocol:
         protocol.buffer_updated(len(large_message))
 
         # Check debug log for buffer size
-        assert "Received TCP data" in caplog.text
+        assert "Received data" in caplog.text
         # Check that the entries in the structured log contain the correct values
         for record in caplog.records:
-            if "Received TCP data" in record.message:
+            if "Received data" in record.message:
                 assert record.nbytes == 200
                 assert record.host == "192.168.1.1"
                 assert record.port == 12345

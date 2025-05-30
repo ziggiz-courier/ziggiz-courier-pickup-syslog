@@ -90,12 +90,11 @@ class TestProtocolFramingIntegration:
             args, kwargs = call
             if args and args[0] == "Syslog message received":
                 extra = kwargs.get("extra", {})
-                # Accept either the raw or parsed message, and any msg_type
                 if (
                     extra.get("host") == "test-host"
                     and extra.get("port") == 12345
                     and extra.get("log_msg") in ("11 Hello World", "Hello World")
-                    and "msg_type" in extra
+                    and extra.get("event_type") is not None
                 ):
                     found = True
                     break
@@ -125,7 +124,7 @@ class TestProtocolFramingIntegration:
                 if (
                     extra.get("peer") == "test-peer"
                     and extra.get("log_msg") in ("11 Hello World", "Hello World")
-                    and "msg_type" in extra
+                    and extra.get("event_type") is not None
                 ):
                     found = True
                     break

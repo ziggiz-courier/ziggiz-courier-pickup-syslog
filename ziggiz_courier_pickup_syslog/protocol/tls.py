@@ -17,139 +17,15 @@ import ssl
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-# Third-party imports
-from opentelemetry.trace import SpanKind
-
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.cert_verify import (
     CertificateVerifier,
     create_verifier_from_config,
 )
 from ziggiz_courier_pickup_syslog.protocol.tcp import SyslogTCPProtocol
-from ziggiz_courier_pickup_syslog.telemetry import get_tracer
 
 
 class SyslogTLSProtocol(SyslogTCPProtocol):
-    def buffer_updated(self, nbytes: int) -> None:
-        host, port = self.peername if self.peername else ("unknown", "unknown")
-        tracer = get_tracer()
-        self.logger.debug(
-            "Received TLS data", extra={"nbytes": nbytes, "host": host, "port": port}
-        )
-        if self._read_buffer is None:
-            self.logger.error("Buffer is None in buffer_updated")
-            return
-        data = self._read_buffer[:nbytes]
-        try:
-            self.framing_helper.add_data(data)
-            messages = self.framing_helper.extract_messages()
-            for msg in messages:
-                if msg:
-                    message = msg.decode("utf-8", errors="replace")
-                    # Third-party imports
-
-                    with tracer.start_as_current_span(
-                        "syslog.tls.message",
-                        kind=SpanKind.SERVER,
-                        attributes={
-                            "net.transport": "ip_tcp",
-                            "net.peer.ip": host,
-                            "net.peer.port": port,
-                            "tls": True,
-                            "message.length": len(msg),
-                        },
-                    ):
-                        try:
-                            decoded_message = self.decoder.decode(message)
-                            if (
-                                self.enable_model_json_output
-                                and decoded_message is not None
-                            ):
-                                try:
-                                    model_json = None
-                                    if hasattr(
-                                        decoded_message, "model_dump_json"
-                                    ) and callable(
-                                        getattr(
-                                            decoded_message, "model_dump_json", None
-                                        )
-                                    ):
-                                        model_json = decoded_message.model_dump_json(
-                                            indent=2
-                                        )
-                                    elif hasattr(decoded_message, "json") and callable(
-                                        getattr(decoded_message, "json", None)
-                                    ):
-                                        model_json = decoded_message.json(indent=2)
-                                    elif hasattr(decoded_message, "dict") and callable(
-                                        getattr(decoded_message, "dict", None)
-                                    ):
-                                        model_dict = decoded_message.dict()
-                                        # Standard library imports
-                                        import json
-
-                                        model_json = json.dumps(
-                                            model_dict, default=str, indent=2
-                                        )
-                                    elif hasattr(
-                                        decoded_message, "model_dump"
-                                    ) and callable(
-                                        getattr(decoded_message, "model_dump", None)
-                                    ):
-                                        model_dict = decoded_message.model_dump()
-                                        # Standard library imports
-                                        import json
-
-                                        model_json = json.dumps(
-                                            model_dict, default=str, indent=2
-                                        )
-                                    if model_json:
-                                        self.logger.debug(
-                                            "Decoded model JSON representation:",
-                                            extra={"decoded_model_json": model_json},
-                                        )
-                                except Exception as json_err:
-                                    self.logger.warning(
-                                        "Failed to create JSON representation of decoded model",
-                                        extra={"error": str(json_err)},
-                                    )
-                            msg_type = (
-                                type(decoded_message).__name__
-                                if decoded_message is not None
-                                else "Unknown"
-                            )
-                            self.logger.debug(
-                                "Syslog message received",
-                                extra={
-                                    "msg_type": msg_type,
-                                    "host": host,
-                                    "port": port,
-                                    "log_msg": message,
-                                },
-                            )
-                        except ImportError:
-                            self.logger.info(
-                                "Syslog message received",
-                                extra={"host": host, "port": port, "log_msg": message},
-                            )
-                        except Exception as e:
-                            self.logger.warning(
-                                "Failed to parse syslog message",
-                                extra={"host": host, "port": port, "error": str(e)},
-                            )
-                            self.logger.info(
-                                "Raw syslog message",
-                                extra={"host": host, "port": port, "log_msg": message},
-                            )
-        except Exception as e:
-            self.logger.error(
-                "Framing error", extra={"host": host, "port": port, "error": e}
-            )
-            if self.framing_helper.framing_mode == "transparent":
-                self.logger.warning("Closing connection due to framing error")
-                if self.transport:
-                    self.transport.close()
-
     """
     TLS Protocol implementation for handling syslog messages.
 

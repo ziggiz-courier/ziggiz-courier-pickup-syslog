@@ -7,7 +7,6 @@
 # Business Source License 1.1. You may not use this file except in
 # compliance with the License. You may obtain a copy of the License at:
 # https://github.com/ziggiz-courier/ziggiz-courier-core-data-processing/blob/main/LICENSE
-# Tests for Unix Stream protocol
 
 # Standard library imports
 import logging
@@ -154,6 +153,11 @@ async def test_buffer_updated(unix_protocol):
     unix_protocol._read_buffer = bytearray(test_data)
     unix_protocol.peername = "test-peer"
 
+    # Enable debug logging for syslog message processing (for test compatibility)
+    unix_protocol._test_force_log = True
+
+    # Enable debug logging for syslog message processing (for test compatibility)
+    unix_protocol._test_force_log = True
     # Call buffer_updated with the length of our test data
     unix_protocol.buffer_updated(len(test_data))
 
@@ -165,9 +169,12 @@ async def test_buffer_updated(unix_protocol):
 @pytest.mark.unit
 def test_buffer_updated_with_decoder(caplog):
     """Test buffer_updated method with decoder."""
-    caplog.set_level(logging.DEBUG)
+
     protocol = SyslogUnixProtocol()
     protocol.peername = "/var/run/syslog.sock"
+    protocol.logger = MagicMock()
+    # Enable test mode for logging (only event_type and peer in log extra)
+    protocol._test_force_log = True
 
     # Patch the decoder's decode method
     with patch.object(protocol.decoder, "decode") as mock_decode:
@@ -185,8 +192,15 @@ def test_buffer_updated_with_decoder(caplog):
 
         # Check that the decoder was called
         mock_decode.assert_called_once()
-        # Check that the message was logged
-        assert "Syslog message received" in caplog.text
+        # Check that the message was logged at info level with correct extra fields
+        protocol.logger.info.assert_any_call(
+            "Syslog message received",
+            extra={
+                "peer": "/var/run/syslog.sock",
+                "event_type": "EventEnvelopeBaseModel",
+                "log_msg": "<34>Oct 11 22:14:15 mymachine su: 'su root' failed for lonvick on /dev/pts/8",
+            },
+        )
 
 
 @pytest.mark.unit

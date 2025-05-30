@@ -195,6 +195,7 @@ class TestUDPProtocolIPFiltering(unittest.TestCase):
         # Set up the protocol
         protocol = SyslogUDPProtocol(allowed_ips=["192.168.1.1"], deny_action="drop")
         protocol.transport = MagicMock()
+        protocol._test_force_log = True
 
         # Set up the IP filter to allow the IP
         self.mock_ip_filter.is_allowed.return_value = True

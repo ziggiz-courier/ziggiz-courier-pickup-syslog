@@ -12,21 +12,20 @@
 
 # Standard library imports
 import asyncio
-import json
 import logging
 
 from typing import Any, Dict, List, Optional, Tuple
 
-# Third-party imports
-from opentelemetry.trace import SpanKind
-
 # Local/package imports
 from ziggiz_courier_pickup_syslog.protocol.decoder_factory import DecoderFactory
 from ziggiz_courier_pickup_syslog.protocol.ip_filter import IPFilter
+from ziggiz_courier_pickup_syslog.protocol.syslog_message_processing_mixin import (
+    SyslogMessageProcessingMixin,
+)
 from ziggiz_courier_pickup_syslog.telemetry import get_tracer
 
 
-class SyslogUDPProtocol(asyncio.DatagramProtocol):
+class SyslogUDPProtocol(SyslogMessageProcessingMixin, asyncio.DatagramProtocol):
     """
     UDP Protocol implementation for handling syslog messages.
 
@@ -154,13 +153,10 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
         # Check if the IP is allowed
         if not self.ip_filter.is_allowed(host):
             if self.deny_action == "reject" and self.transport:
-                # For UDP, we can send an ICMP port unreachable message
                 self.logger.warning(
                     "Rejected UDP datagram (not in allowed IPs)",
                     extra={"host": host, "port": port},
                 )
-                # We don't actually send an ICMP message as that would require raw socket access
-                # Just log the rejection
             else:  # "drop"
                 self.logger.warning(
                     "Dropped UDP datagram (not in allowed IPs)",
@@ -170,77 +166,27 @@ class SyslogUDPProtocol(asyncio.DatagramProtocol):
 
         self.logger.debug("Received UDP datagram", extra={"host": host, "port": port})
 
-        # Decode the data
-        message = data.decode("utf-8", errors="replace")
-        # Start a span for each UDP message
+        # Wrap the UDP datagram as a single-message list of bytes, to match the mixin's interface
+        messages = [data]
 
-        with tracer.start_as_current_span(
-            "syslog.udp.message",
-            kind=SpanKind.SERVER,
-            attributes={
+        def span_attributes(peer_info, msg):
+            return {
                 "net.transport": "ip_udp",
                 "net.peer.ip": host,
                 "net.peer.port": port,
-                "message.length": len(data),
-            },
-        ):
-            try:
-                decoded_message = self.decoder.decode(message)
-                if self.enable_model_json_output and decoded_message is not None:
-                    try:
-                        model_json = None
-                        if hasattr(decoded_message, "model_dump_json") and callable(
-                            getattr(decoded_message, "model_dump_json", None)
-                        ):
-                            model_json = decoded_message.model_dump_json(indent=2)
-                        elif hasattr(decoded_message, "json") and callable(
-                            getattr(decoded_message, "json", None)
-                        ):
-                            model_json = decoded_message.json(indent=2)
-                        elif hasattr(decoded_message, "dict") and callable(
-                            getattr(decoded_message, "dict", None)
-                        ):
-                            model_dict = decoded_message.dict()
-                            model_json = json.dumps(model_dict, default=str, indent=2)
-                        elif hasattr(decoded_message, "model_dump") and callable(
-                            getattr(decoded_message, "model_dump", None)
-                        ):
-                            model_dict = decoded_message.model_dump()
-                            model_json = json.dumps(model_dict, default=str, indent=2)
-                        if model_json:
-                            self.logger.debug(
-                                "Decoded model JSON representation:",
-                                extra={"decoded_model_json": model_json},
-                            )
-                    except Exception as json_err:
-                        self.logger.warning(
-                            "Failed to create JSON representation of decoded model",
-                            extra={"error": str(json_err)},
-                        )
-                msg_type = type(decoded_message).__name__
-                self.logger.debug(
-                    "Syslog message received",
-                    extra={
-                        "msg_type": msg_type,
-                        "host": host,
-                        "port": port,
-                        "log_msg": message,
-                    },
-                )
-            except ImportError:
-                self.logger.info(
-                    "Syslog message received",
-                    extra={"host": host, "port": port, "log_msg": message},
-                )
-            except Exception as e:
-                self.logger.warning(
-                    "Failed to parse syslog message",
-                    extra={"host": host, "port": port, "error": str(e)},
-                )
-                self.logger.info(
-                    "Raw syslog message",
-                    extra={"host": host, "port": port, "log_msg": message},
-                )
+                "message.length": len(msg),
+            }
+
+        self.process_syslog_messages(
+            messages=messages,
+            logger=self.logger,
+            decoder=self.decoder,
+            tracer=tracer,
+            span_name="syslog.udp.message",
+            span_attributes_func=span_attributes,
+            enable_model_json_output=self.enable_model_json_output,
+            peer_info={"host": host, "port": port},
+        )
 
     def error_received(self, exc: Exception) -> None:
         """
