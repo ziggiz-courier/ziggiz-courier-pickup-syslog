@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 # SPDX-License-Identifier: BSL-1.1
 # Copyright (c) 2025 Ziggiz Inc.
 #
@@ -8,10 +7,6 @@
 # compliance with the License. You may obtain a copy of the License at:
 # https://github.com/ziggiz-courier/ziggiz-courier-core-data-processing/blob/main/LICENSE
 # TCP Protocol implementation for syslog server with fixed framing
-
-# Standard library imports
-
-
 # Standard library imports
 import asyncio
 
@@ -72,15 +67,7 @@ class SyslogTCPProtocol(BaseSyslogBufferedProtocol):
             "message.length": len(msg),
         }
 
-    def connection_made(self, transport: asyncio.BaseTransport) -> None:
-        """
-        Called when a connection is made.
-
-        Args:
-            transport: The transport for the connection
-        """
-        self.transport = transport
-        self.peername = transport.get_extra_info("peername")
+    def on_connection_made(self, transport: asyncio.BaseTransport) -> None:
         host, port = self.peername if self.peername else ("unknown", "unknown")
 
         # Check if the IP is allowed
@@ -118,160 +105,15 @@ class SyslogTCPProtocol(BaseSyslogBufferedProtocol):
             },
         )
 
-    def get_buffer(self, sizehint: int) -> bytearray:
+    def handle_decoded_message(self, decoded_message, peer_info):
         """
-        Get a buffer to read incoming data into.
-
-        Args:
-            sizehint: A hint about the maximum size of the data that will be read
-
-        Returns:
-            A bytearray to be filled with incoming data
+        Handle a decoded syslog message received via TCP.
+        In a real implementation, this would process the message further.
         """
-        # If sizehint is negative, use max_buffer_size (asyncio convention)
-        if sizehint is None or sizehint < 0:
-            buffer_size = self.max_buffer_size
-        else:
-            buffer_size = min(sizehint, self.max_buffer_size)
-        self._read_buffer = bytearray(buffer_size)
-        return self._read_buffer
+        self.logger.info(
+            f"Received TCP message: {type(decoded_message).__name__}",
+            extra={"peer": peer_info},
+        )
 
-    def eof_received(self) -> bool:
-        """
-        Called when the other end signals it won't send any more data.
-
-        Returns:
-            False to close the transport, True to keep it open
-        """
-        host, port = self.peername if self.peername else ("unknown", "unknown")
-        self.logger.debug("EOF received", extra={"host": host, "port": port})
-
-        # Extract and process any final messages
-        try:
-            # Get any remaining messages from the framing helper buffer
-            messages = self.framing_helper.extract_messages()
-
-            # Process complete messages
-            for msg in messages:
-                if msg:  # Skip empty messages
-                    message = msg.decode("utf-8", errors="replace")
-
-                    try:
-                        decoded_message = self.decoder.decode(message)
-                        if decoded_message is not None:
-                            if self.enable_model_json_output:
-                                try:
-                                    if hasattr(decoded_message, "model_dump_json"):
-                                        model_json = decoded_message.model_dump_json(
-                                            indent=2
-                                        )
-                                    elif hasattr(decoded_message, "json"):
-                                        model_json = decoded_message.json(indent=2)
-                                    elif hasattr(decoded_message, "dict") or hasattr(
-                                        decoded_message, "model_dump"
-                                    ):
-                                        dump_method = getattr(
-                                            decoded_message,
-                                            "model_dump",
-                                            getattr(decoded_message, "dict", None),
-                                        )
-                                        if dump_method:
-                                            model_dict = dump_method()
-                                            # Standard library imports
-                                            import json
-
-                                            model_json = json.dumps(
-                                                model_dict, default=str, indent=2
-                                            )
-                                        else:
-                                            model_json = None
-                                    else:
-                                        model_json = None
-                                    if model_json:
-                                        self.logger.debug(
-                                            "Decoded model JSON representation:",
-                                            extra={"decoded_model_json": model_json},
-                                        )
-                                except Exception as json_err:
-                                    self.logger.warning(
-                                        "Failed to create JSON representation of decoded model",
-                                        extra={"error": str(json_err)},
-                                    )
-                            msg_type = type(decoded_message).__name__
-                            self.logger.info(
-                                "Final syslog message",
-                                extra={
-                                    "msg_type": msg_type,
-                                    "host": host,
-                                    "port": port,
-                                    "message": message,
-                                },
-                            )
-                    except ImportError:
-                        self.logger.info(
-                            "Final syslog message",
-                            extra={"host": host, "port": port, "message": message},
-                        )
-                    except Exception as e:
-                        self.logger.warning(
-                            "Failed to parse final syslog message",
-                            extra={"host": host, "port": port, "error": e},
-                        )
-                        self.logger.info(
-                            "Raw final syslog message",
-                            extra={"host": host, "port": port, "message": message},
-                        )
-
-            # Check if there's still data in the buffer that couldn't be parsed
-            if self.framing_helper.buffer_size > 0:
-                self.logger.warning(
-                    "Discarding unparsed data",
-                    extra={
-                        "buffer_size": self.framing_helper.buffer_size,
-                        "host": host,
-                        "port": port,
-                    },
-                )
-        except Exception as e:
-            self.logger.error(
-                "Error processing final data",
-                extra={"host": host, "port": port, "error": e},
-            )
-
-        # Return False to close the transport
-        return False
-
-    def connection_lost(self, exc: Optional[Exception]) -> None:
-        """
-        Called when the connection is lost or closed.
-
-        Args:
-            exc: The exception that caused the connection to close,
-                 or None if the connection was closed without an error
-        """
-        host, port = self.peername if self.peername else ("unknown", "unknown")
-
-        if exc:
-            self.logger.debug(
-                "TCP connection closed with error",
-                extra={
-                    "net.transport": "ip_tcp",
-                    "net.peer.ip": host,
-                    "net.peer.port": port,
-                    "error": exc,
-                },
-            )
-        else:
-            self.logger.debug(
-                "TCP connection closed",
-                extra={
-                    "net.transport": "ip_tcp",
-                    "net.peer.ip": host,
-                    "net.peer.port": port,
-                },
-            )
-
-        # Reset the framing helper and clear buffers
-        self.framing_helper.reset()
-        self._read_buffer = None
-        self.transport = None
+        # Future implementations would send this to a message processor,
+        # message queue, or other destination

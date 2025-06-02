@@ -73,15 +73,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
         self.logger = logging.getLogger("ziggiz_courier_pickup_syslog.protocol.tls")
         self.cert_verifier = cert_verifier
 
-    def connection_made(self, transport: asyncio.BaseTransport) -> None:
-        """
-        Called when a connection is made.
-
-        Args:
-            transport: The transport for the connection
-        """
-        self.transport = transport
-        self.peername = transport.get_extra_info("peername")
+    def on_connection_made(self, transport: asyncio.BaseTransport) -> None:
         host, port = self.peername if self.peername else ("unknown", "unknown")
 
         # Check if the IP is allowed
@@ -172,42 +164,20 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                 },
             )
 
-    def connection_lost(self, exc: Optional[Exception]) -> None:
+    def handle_decoded_message(self, decoded_message, peer_info):
         """
-        Called when the connection is lost or closed.
+        Handle a decoded syslog message received via TLS.
 
-        Args:
-            exc: The exception that caused the connection to close,
-                 or None if the connection was closed without an error
+        Since TLS extends TCP, we can use the same implementation.
+        In a production environment, you might want to handle secure messages differently.
         """
-        host, port = self.peername if self.peername else ("unknown", "unknown")
+        # We're just adding a TLS indicator to the log message
+        self.logger.info(
+            f"Received TLS (secure) message: {type(decoded_message).__name__}",
+            extra={"peer": peer_info, "secure": True},
+        )
 
-        if exc:
-            self.logger.debug(
-                "TLS connection closed with error",
-                extra={
-                    "net.transport": "ip_tcp",
-                    "net.peer.ip": host,
-                    "net.peer.port": port,
-                    "tls": True,
-                    "error": exc,
-                },
-            )
-        else:
-            self.logger.debug(
-                "TLS connection closed",
-                extra={
-                    "net.transport": "ip_tcp",
-                    "net.peer.ip": host,
-                    "net.peer.port": port,
-                    "tls": True,
-                },
-            )
-
-        # Reset the framing helper and clear buffers
-        self.framing_helper.reset()
-        self._read_buffer = None
-        self.transport = None
+        # Future implementations would handle secure messages appropriately
 
     def _log_certificate_info(
         self, cert: Dict, host: str, port: Union[str, int]

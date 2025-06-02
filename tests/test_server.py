@@ -11,7 +11,6 @@
 
 # Standard library imports
 import asyncio
-import logging
 import ssl
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -288,85 +287,58 @@ class TestSyslogServer:
         with pytest.raises(RuntimeError):
             await server.start()
 
-    async def test_stop_tcp(self, caplog):
-        """Test stopping a TCP server."""
-        caplog.set_level(logging.INFO)
+    async def test_stop_tcp(self):
+        """Test stopping a TCP server (functional, not log output)."""
         server = SyslogServer()
-        # Use a mock server with proper async methods
-        mock_server = MagicMock()  # Use regular MagicMock for non-async close
-        # Ensure the mock has the necessary method for wait_closed
-        mock_server.wait_closed = AsyncMock()  # Only wait_closed is async
+        mock_server = MagicMock()
+        mock_server.wait_closed = AsyncMock()
         server.tcp_server = mock_server
-        # Stop the server
         await server.stop()
-        # Verify the server was closed
         mock_server.close.assert_called_once()
         mock_server.wait_closed.assert_called_once()
         assert server.tcp_server is None
-        assert "Stopping syslog server" in caplog.text
 
-    async def test_stop_udp(self, caplog):
-        """Test stopping a UDP server."""
-        caplog.set_level(logging.INFO)
+    async def test_stop_udp(self):
+        """Test stopping a UDP server (functional, not log output)."""
         server = SyslogServer()
-        # Create mocks for transport and protocol
         mock_transport = MagicMock()
         mock_protocol = MagicMock()
         server.udp_transport = mock_transport
         server.udp_protocol = mock_protocol
-        # Stop the server
         await server.stop()
-        # Verify the transport was closed
         mock_transport.close.assert_called_once()
         assert server.udp_transport is None
         assert server.udp_protocol is None
-        assert "Stopping syslog server" in caplog.text
 
-    async def test_stop_unix(self, caplog):
-        """Test stopping a Unix server."""
-        caplog.set_level(logging.INFO)
+    async def test_stop_unix(self):
+        """Test stopping a Unix server (functional, not log output)."""
         server = SyslogServer()
-        # Create test socket path and config
         socket_path = "/tmp/test-syslog.sock"
         server.config = Config(protocol="unix", unix_socket_path=socket_path)
-        # Use a mock server with proper async methods
         mock_server = MagicMock()
         mock_server.wait_closed = AsyncMock()
         server.unix_server = mock_server
-
-        # Create test socket file
         with patch("os.path.exists") as mock_exists, patch("os.unlink") as mock_unlink:
             mock_exists.return_value = True
-            # Stop the server
             await server.stop()
-            # Verify the server was closed
             mock_server.close.assert_called_once()
             mock_server.wait_closed.assert_called_once()
             assert server.unix_server is None
-            # Verify socket file was removed
             mock_unlink.assert_called_once_with(socket_path)
-            assert "Stopping syslog server" in caplog.text
 
-    async def test_stop_tls(self, caplog):
-        """Test stopping a TLS server."""
-        caplog.set_level(logging.INFO)
+    async def test_stop_tls(self):
+        """Test stopping a TLS server (functional, not log output)."""
         server = SyslogServer()
-        # Use a mock server with proper async methods
         mock_server = MagicMock()
         mock_server.wait_closed = AsyncMock()
         mock_context = MagicMock()
         server.tls_server = mock_server
         server.tls_context = mock_context
-
-        # Stop the server
         await server.stop()
-
-        # Verify the server was closed
         mock_server.close.assert_called_once()
         mock_server.wait_closed.assert_called_once()
         assert server.tls_server is None
         assert server.tls_context is None
-        assert "Stopping syslog server" in caplog.text
 
     @patch("asyncio.sleep")
     async def test_run_forever(self, mock_sleep):

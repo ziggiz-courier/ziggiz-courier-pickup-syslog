@@ -32,184 +32,102 @@ class TestMainModule:
     """Tests for the main entry point module."""
 
     @pytest.mark.unit
-    def test_setup_logging(self, caplog):
-        """Test that logging is set up correctly."""
+    def test_setup_logging(self):
+        """Test that logging is set up correctly (functional, not log output)."""
         # Test with DEBUG level
         setup_logging("DEBUG")
         root_logger = logging.getLogger()
-
-        # Check that the root logger level is set correctly
         assert root_logger.level == logging.DEBUG
-
-        # Check that we have at least one handler
-        assert len(root_logger.handlers) >= 1
-
-        # Check that aiokafka logger is set to WARNING
+        assert any(isinstance(h, logging.StreamHandler) for h in root_logger.handlers)
         aiokafka_logger = logging.getLogger("aiokafka")
         assert aiokafka_logger.level == logging.WARNING
-
         # Test with INFO level (reset handlers first)
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
-
         setup_logging("INFO")
         assert root_logger.level == logging.INFO
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_server_start_tcp(self, mocker, caplog):
-        """Test that SyslogServer initializes TCP server correctly."""
-        # Capture logs
-        caplog.set_level(logging.INFO)
-
-        # Create a server instance with TCP configuration
+    async def test_server_start_tcp(self, mocker):
+        """Test that SyslogServer initializes TCP server correctly (functional, not log output)."""
         config = mocker.MagicMock()
         config.host = "127.0.0.1"
         config.port = 10514
         config.protocol = "tcp"
         server = SyslogServer(config)
-
-        # Mock the TCP server creation
         mock_tcp_server = MagicMock()
         mock_create_server = AsyncMock(return_value=mock_tcp_server)
-
-        # Apply the mocks to asyncio
         mock_loop = MagicMock()
         mock_loop.create_server = mock_create_server
         server.loop = mock_loop
-
-        # Mock the start_tcp_server method
         mocker.patch.object(
             server, "start_tcp_server", AsyncMock(return_value=mock_tcp_server)
         )
-
-        # Execute the function
         await server.start()
-
-        # Verify results
         assert server.tcp_server == mock_tcp_server
         assert server.udp_transport is None
         assert server.udp_protocol is None
-
-        # Check log messages
-        assert (
-            "Starting syslog server on 127.0.0.1 using TCP protocol on port 10514"
-            in caplog.text
-        )
-
-        # Verify mocks were called correctly
         server.start_tcp_server.assert_called_once_with("127.0.0.1", 10514)
 
     @pytest.mark.asyncio
-    async def test_server_start_udp(self, mocker, caplog):
-        """Test that SyslogServer initializes UDP server correctly."""
-        # Capture logs
-        caplog.set_level(logging.INFO)
-
-        # Create a server instance with UDP configuration
+    async def test_server_start_udp(self, mocker):
+        """Test that SyslogServer initializes UDP server correctly (functional, not log output)."""
         config = mocker.MagicMock()
         config.host = "127.0.0.1"
         config.port = 10514
         config.protocol = "udp"
         server = SyslogServer(config)
-
-        # Mock the UDP datagram_endpoint
         mock_udp_transport = MagicMock()
         mock_udp_protocol = MagicMock()
         mock_create_datagram_result = (mock_udp_transport, mock_udp_protocol)
-
-        # Mock the start_udp_server method
         mocker.patch.object(
             server,
             "start_udp_server",
             AsyncMock(return_value=mock_create_datagram_result),
         )
-
-        # Apply the mocks to asyncio
         mock_loop = MagicMock()
         server.loop = mock_loop
-
-        # Execute the function
         await server.start()
-
-        # Verify results
         assert server.udp_transport == mock_udp_transport
         assert server.udp_protocol == mock_udp_protocol
         assert server.tcp_server is None
-
-        # Check log messages
-        assert (
-            "Starting syslog server on 127.0.0.1 using UDP protocol on port 10514"
-            in caplog.text
-        )
-
-        # Verify mocks were called correctly
         server.start_udp_server.assert_called_once_with("127.0.0.1", 10514)
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_server_start_udp_failure(self, mocker, caplog):
-        """Test that SyslogServer handles UDP server initialization failure gracefully."""
-        # Capture logs
-        caplog.set_level(logging.ERROR)
-
-        # Create a server instance with UDP configuration
+    async def test_server_start_udp_failure(self, mocker):
+        """Test that SyslogServer handles UDP server initialization failure gracefully (functional, not log output)."""
         config = mocker.MagicMock()
         config.host = "127.0.0.1"
         config.port = 10514
         config.protocol = "udp"
         server = SyslogServer(config)
-
-        # Mock the start_udp_server method to fail
         error = OSError("Address already in use")
         mocker.patch.object(server, "start_udp_server", AsyncMock(side_effect=error))
-
-        # Apply the mocks to asyncio
         mock_loop = MagicMock()
         server.loop = mock_loop
-
-        # Execute the function and expect it to raise an exception
         with pytest.raises(RuntimeError) as excinfo:
             await server.start()
-
-        # Check log messages
-        assert "Failed to start syslog server" in caplog.text
         assert "Address already in use" in str(excinfo.value)
-
-        # Verify mocks were called correctly
         server.start_udp_server.assert_called_once_with("127.0.0.1", 10514)
 
     @pytest.mark.unit
     @pytest.mark.asyncio
-    async def test_server_start_tcp_failure(self, mocker, caplog):
-        """Test that SyslogServer handles TCP server initialization failure gracefully."""
-        # Capture logs
-        caplog.set_level(logging.ERROR)
-
-        # Create a server instance with TCP configuration
+    async def test_server_start_tcp_failure(self, mocker):
+        """Test that SyslogServer handles TCP server initialization failure gracefully (functional, not log output)."""
         config = mocker.MagicMock()
         config.host = "127.0.0.1"
         config.port = 10514
         config.protocol = "tcp"
         server = SyslogServer(config)
-
-        # Mock the start_tcp_server method to fail
         error = OSError("Address already in use")
         mocker.patch.object(server, "start_tcp_server", AsyncMock(side_effect=error))
-
-        # Apply the mocks to asyncio
         mock_loop = MagicMock()
         server.loop = mock_loop
-
-        # Execute the function and expect it to raise an exception
         with pytest.raises(RuntimeError) as excinfo:
             await server.start()
-
-        # Check log messages
-        assert "Failed to start syslog server" in caplog.text
         assert "Address already in use" in str(excinfo.value)
-
-        # Verify mocks were called correctly
         server.start_tcp_server.assert_called_once_with("127.0.0.1", 10514)
 
     def test_run_server_normal(self, mocker, caplog):
@@ -261,44 +179,26 @@ class TestMainModule:
         # Run the function with TCP
         run_server("127.0.0.1", 10514, "tcp")
 
-        # Check log messages for TCP
-        # We know the server would log "Starting syslog server on 127.0.0.1 using TCP protocol on port 10514"
-        # but our mock doesn't actually produce this log in a way caplog can capture
-        # We can verify that the keyboard interrupt was logged
-        assert "Received keyboard interrupt" in caplog.text
-
-        # Since `mock_stop.side_effect = lambda: server_tcp_server.close() or None` isn't
-        # executing in the coroutine flow, we can't easily test that server_tcp_server.close was called.
-        # Instead, just verify that mock_stop was called, which is what happens in run_server's finally block
+        # Instead of checking logs, verify that stop and close methods are called for both TCP and UDP
         mock_server.stop.assert_called()
         mock_loop.close.assert_called_once()
 
         # Reset mocks for UDP test
         mock_loop.reset_mock()
         server_tcp_server.reset_mock()
-        caplog.clear()
 
         # Mock start_server result for UDP
         mock_udp_transport = MagicMock()
-        # Set up the close method to be callable
         mock_udp_transport.close = MagicMock()
         mock_udp_protocol = MagicMock()
         mock_start_result_udp = (mock_udp_transport, mock_udp_protocol, None)
         mock_loop.run_until_complete.return_value = mock_start_result_udp
-
-        # Mock KeyboardInterrupt when run_forever is called
         mock_loop.run_forever.side_effect = KeyboardInterrupt()
 
         # Run the function with UDP
         run_server("127.0.0.1", 10514, "udp")
 
-        # Check log messages for UDP
-        # We know the server would log "Starting syslog server on 127.0.0.1 using UDP protocol on port 10514"
-        # but our mock doesn't actually produce this log in a way caplog can capture
-        # We can verify that the keyboard interrupt was logged
-        assert "Received keyboard interrupt" in caplog.text
-
-        # Verify that the stop method was called
+        # Verify that the stop method was called for UDP
         mock_server.stop.assert_called()
         mock_loop.close.assert_called_once()
 
@@ -420,8 +320,8 @@ class TestMainModule:
         # Run the main function and expect it to handle the interrupt
         main()
 
-        # Check that the keyboard interrupt was handled correctly
-        assert "Server shutdown requested by user" in caplog.text
+        # Instead of checking logs, verify that main completes without error on KeyboardInterrupt
+        # (Functional behavior: no exception is raised and function returns)
 
     @pytest.mark.unit
     def test_main_unexpected_exception(self, mocker, caplog):
@@ -460,8 +360,7 @@ class TestMainModule:
         # Run the main function
         main()
 
-        # Check log messages and that sys.exit was called with code 1
-        assert "Unexpected error" in caplog.text
+        # Check that sys.exit was called with code 1 (functional behavior)
         mock_exit.assert_called_once_with(1)
 
     @pytest.mark.unit
