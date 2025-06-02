@@ -76,7 +76,10 @@ class BaseSyslogBufferedProtocol(
                 end_of_message_marker
             )
         except ValueError as e:
-            self.logger.error(f"Invalid end-of-message marker: {e}")
+            self.logger.error(
+                "Invalid end-of-message marker",
+                extra={"error": str(e)},
+            )
             self.end_of_msg_marker = DEFAULT_END_OF_MSG_MARKER
 
         # Set buffer parameters
@@ -112,7 +115,8 @@ class BaseSyslogBufferedProtocol(
 
         # Default to auto if not recognized
         self.logger.warning(
-            f"Unrecognized framing mode '{framing_mode}', defaulting to AUTO"
+            "Unrecognized framing mode, defaulting to AUTO",
+            extra={"framing_mode": str(framing_mode)},
         )
         return FramingMode.AUTO
 
@@ -165,7 +169,8 @@ class BaseSyslogBufferedProtocol(
         if self._test_force_log:
             data_hex = self._read_buffer[:nbytes].hex()
             self.logger.debug(
-                f"Received {nbytes} bytes: {data_hex}", extra={"peer": peer_info}
+                "Received bytes in buffer_updated",
+                extra={"peer": peer_info, "nbytes": nbytes, "data_hex": data_hex},
             )
 
         # Add data to the internal buffer for processing
@@ -185,9 +190,9 @@ class BaseSyslogBufferedProtocol(
 
         except Exception as exc:
             self.logger.error(
-                f"Error processing data from {peer_info}: {exc}",
+                "Error processing data from peer",
                 exc_info=True,
-                extra={"peer": peer_info},
+                extra={"peer": peer_info, "error": str(exc)},
             )
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
@@ -402,8 +407,8 @@ class BaseSyslogBufferedProtocol(
                 except Exception:
                     buffer_str = str(self._buffer)
                 self.logger.warning(
-                    f"Final incomplete message in buffer at EOF from {peer_info}: {buffer_str}",
-                    extra=peer_info,
+                    "Final incomplete message in buffer at EOF",
+                    extra={**peer_info, "buffer_str": buffer_str},
                 )
 
                 # Try to process the incomplete message if it's not empty
@@ -411,9 +416,9 @@ class BaseSyslogBufferedProtocol(
                     self.process_syslog_message(bytes(self._buffer), peer_info)
         except Exception as exc:
             self.logger.error(
-                f"Error processing final data from {peer_info}: {exc}",
+                "Error processing final data from peer",
                 exc_info=True,
-                extra=peer_info,
+                extra={**peer_info, "error": str(exc)},
             )
 
         return False  # Don't keep the transport open
@@ -426,10 +431,14 @@ class BaseSyslogBufferedProtocol(
 
         if exc is not None:
             self.logger.error(
-                f"Connection lost with error from {peer_info}: {exc}", extra=peer_info
+                "Connection lost with error from peer",
+                extra={"peer_info": peer_info, "error": str(exc)},
             )
         else:
-            self.logger.info(f"Connection closed from {peer_info}", extra=peer_info)
+            self.logger.info(
+                "Connection closed from peer",
+                extra={"peer_info": peer_info},
+            )
 
         # Clear the buffers and any cached state
         self._buffer.clear()
@@ -461,10 +470,16 @@ class BaseSyslogBufferedProtocol(
             msg_type = type(decoded_message).__name__
 
             if self._test_force_log or self.logger.isEnabledFor(logging.INFO):
-                message = str(decoded_message).replace("\n", "\\n")
+                msg_str = str(decoded_message).replace("\n", "\\n")
+                # Avoid reserved LogRecord keys in extra
+                log_extra = {
+                    **peer_info,
+                    "msg_type": msg_type,
+                    "syslog_message": msg_str,
+                }
                 self.logger.info(
-                    f"Final syslog message ({msg_type}) from {peer_info}: {message}",
-                    extra=peer_info,
+                    "Final syslog message received",
+                    extra=log_extra,
                 )
 
                 # Log JSON representation if enabled and available
@@ -484,9 +499,14 @@ class BaseSyslogBufferedProtocol(
                         )
 
                     if model_json:
+                        log_extra_json = {
+                            **peer_info,
+                            "msg_type": msg_type,
+                            "decoded_model_json": model_json,
+                        }
                         self.logger.info(
-                            f"JSON representation of {msg_type}:\n{model_json}",
-                            extra=peer_info,
+                            "JSON representation of syslog message",
+                            extra=log_extra_json,
                         )
 
             # Handle the message based on its type and underlying protocol

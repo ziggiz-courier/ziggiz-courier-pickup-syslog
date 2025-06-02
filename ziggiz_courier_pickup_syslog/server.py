@@ -103,7 +103,10 @@ class SyslogServer:
             else:
                 raise ValueError(f"Invalid protocol specified: {protocol}")
         except Exception as e:
-            self.logger.error(f"Failed to start syslog server: {e}")
+            self.logger.error(
+                "Failed to start syslog server",
+                extra={"error": str(e)},
+            )
             raise RuntimeError(f"Failed to start syslog server: {e}")
 
     async def start_udp_server(
@@ -138,10 +141,16 @@ class SyslogServer:
             transport, protocol = await self.loop.create_datagram_endpoint(
                 protocol_factory, local_addr=(host, port)
             )
-            self.logger.info(f"UDP server listening on {host}:{port}")
+            self.logger.info(
+                "UDP server listening",
+                extra={"host": host, "port": port},
+            )
             return transport, protocol
         except Exception as e:
-            self.logger.error(f"Failed to start UDP server: {e}")
+            self.logger.error(
+                "Failed to start UDP server",
+                extra={"error": str(e)},
+            )
             raise
 
     async def start_tcp_server(self, host: str, port: int) -> asyncio.AbstractServer:
@@ -179,7 +188,10 @@ class SyslogServer:
             )
             return server
         except Exception as e:
-            self.logger.error(f"Failed to start TCP server: {e}")
+            self.logger.error(
+                "Failed to start TCP server",
+                extra={"error": str(e)},
+            )
             raise
 
     async def start_unix_server(self, socket_path: str) -> asyncio.AbstractServer:
@@ -223,7 +235,10 @@ class SyslogServer:
             )
             return server
         except Exception as e:
-            self.logger.error(f"Failed to start Unix Stream server: {e}")
+            self.logger.error(
+                "Failed to start Unix Stream server",
+                extra={"error": str(e)},
+            )
             raise
 
     async def start_tls_server(
@@ -315,7 +330,10 @@ class SyslogServer:
 
             return server, ssl_context
         except Exception as e:
-            self.logger.error(f"Failed to start TLS server: {e}")
+            self.logger.error(
+                "Failed to start TLS server",
+                extra={"error": str(e)},
+            )
             raise
 
     async def stop(self) -> None:
@@ -356,7 +374,10 @@ class SyslogServer:
                     os.unlink(socket_path)
                     self.logger.debug(f"Removed Unix socket file: {socket_path}")
                 except OSError as e:
-                    self.logger.warning(f"Error removing Unix socket file: {e}")
+                    self.logger.warning(
+                        "Error removing Unix socket file",
+                        extra={"error": str(e)},
+                    )
 
         # Clean up TLS resources
         if self.tls_server:
