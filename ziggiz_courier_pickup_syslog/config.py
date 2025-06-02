@@ -22,7 +22,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class LoggerConfig(BaseModel):
-    """Configuration for individual loggers."""
+    """
+    Configuration for individual loggers.
+
+    Attributes:
+        name (str): Logger name.
+        level (str): Logging level (default: "INFO").
+        propagate (bool): Whether to propagate logs to parent (default: True).
+    """
 
     name: str
     level: str = "INFO"
@@ -30,15 +37,27 @@ class LoggerConfig(BaseModel):
 
 
 class CertificateRuleConfig(BaseModel):
-    """Configuration for a certificate verification rule."""
+    """
+    Configuration for a certificate verification rule.
 
-    attribute: str  # The certificate attribute to check (e.g., "CN", "OU")
-    pattern: str  # The regex pattern to match against the attribute value
-    required: bool = True  # Whether this attribute is required to be present
+    Attributes:
+        attribute (str): The certificate attribute to check (e.g., "CN", "OU").
+        pattern (str): The regex pattern to match against the attribute value.
+        required (bool): Whether this attribute is required to be present (default: True).
+    """
+
+    attribute: str
+    pattern: str
+    required: bool = True
 
 
 class Config(BaseModel):
-    """Main configuration class for the Ziggiz Courier Pickup Syslog server."""
+    """
+    Main configuration class for the Ziggiz Courier Pickup Syslog server.
+
+    This class defines all configuration options for the syslog server, including
+    server settings, logging, decoder options, and certificate rules.
+    """
 
     # Server configuration
     host: str = "::"  # IPv6 for dual-stack support

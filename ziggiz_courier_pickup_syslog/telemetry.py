@@ -9,6 +9,10 @@
 # SPDX-License-Identifier: BSL-1.1
 # Copyright (c) 2025 Ziggiz Inc.
 # OpenTelemetry setup for Ziggiz Courier Pickup Syslog
+#
+# This module configures OpenTelemetry tracing for the syslog server.
+# By default, it exports spans to the console for development/demo purposes.
+# In production, configure an OTLP exporter via environment variables.
 
 # Third-party imports
 from opentelemetry import trace
@@ -17,6 +21,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import Tracer
 
+# Create an OpenTelemetry resource for the service
 resource = Resource.create({"service.name": "ziggiz-courier-pickup-syslog"})
 tracer_provider = TracerProvider(resource=resource)
 trace.set_tracer_provider(tracer_provider)

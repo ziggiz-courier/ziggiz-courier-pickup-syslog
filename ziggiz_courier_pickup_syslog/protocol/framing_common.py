@@ -14,7 +14,14 @@ from enum import Enum
 
 
 class FramingMode(Enum):
-    """Enumeration for the framing mode."""
+    """
+    Enumeration for the syslog message framing mode.
+
+    Values:
+        AUTO: Automatically detect framing mode (tries transparent, then non-transparent).
+        TRANSPARENT: Octet-counting framing (RFC 5425, each message prefixed with length).
+        NON_TRANSPARENT: Delimiter-based framing (e.g., newline or custom marker).
+    """
 
     AUTO = "auto"
     TRANSPARENT = "transparent"
@@ -22,4 +29,6 @@ class FramingMode(Enum):
 
 
 class FramingDetectionError(Exception):
-    """Exception raised when there's an error in framing detection."""
+    """
+    Exception raised when there's an error in framing detection.
+    """

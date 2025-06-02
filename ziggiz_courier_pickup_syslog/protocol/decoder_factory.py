@@ -51,6 +51,11 @@ class DecoderFactory:
 
     # Custom formatter to show extra dictionary in logs
     class ExtraInfoFormatter(logging.Formatter):
+        """
+        Custom logging formatter that appends extra (non-standard) attributes to the log message as JSON.
+        Useful for debugging and structured logging.
+        """
+
         def format(self, record: logging.LogRecord) -> str:
             formatted_message = super().format(record)
 
@@ -91,6 +96,7 @@ class DecoderFactory:
                     extra_dict, default=str, sort_keys=True, indent=2
                 )
                 return f"{formatted_message} - Extra: {extra_str}"
+            return formatted_message
             return formatted_message
 
     # Set up the logger with custom formatter

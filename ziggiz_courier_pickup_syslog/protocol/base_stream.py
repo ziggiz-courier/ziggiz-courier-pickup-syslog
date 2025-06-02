@@ -38,7 +38,10 @@ class BaseSyslogBufferedProtocol(
 ):
     """
     Abstract base class for syslog buffered streaming protocols (TCP/Unix).
-    Implements shared logic for framing, decoding, and buffer management.
+
+    Implements shared logic for message framing, decoding, and buffer management.
+    Handles connection lifecycle events, message extraction from the buffer,
+    and integration with syslog decoders for TCP, Unix, and TLS protocols.
     """
 
     def __init__(
