@@ -15,6 +15,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.trace import Tracer
 
 resource = Resource.create({"service.name": "ziggiz-courier-pickup-syslog"})
 tracer_provider = TracerProvider(resource=resource)
@@ -25,5 +26,5 @@ span_processor = BatchSpanProcessor(ConsoleSpanExporter())
 tracer_provider.add_span_processor(span_processor)
 
 
-def get_tracer():
+def get_tracer() -> Tracer:
     return trace.get_tracer("ziggiz-courier-pickup-syslog")

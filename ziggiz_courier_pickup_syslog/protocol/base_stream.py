@@ -394,9 +394,15 @@ class BaseSyslogBufferedProtocol(
                 self.process_syslog_message(msg, peer_info)
 
             # If we still have data in the buffer after extraction
+
             if self._buffer:
+                # mypy: decode bytes for string formatting
+                try:
+                    buffer_str = self._buffer.decode("utf-8", errors="replace")
+                except Exception:
+                    buffer_str = str(self._buffer)
                 self.logger.warning(
-                    f"Final incomplete message in buffer at EOF from {peer_info}: {bytes(self._buffer)}",
+                    f"Final incomplete message in buffer at EOF from {peer_info}: {buffer_str}",
                     extra=peer_info,
                 )
 
@@ -489,8 +495,9 @@ class BaseSyslogBufferedProtocol(
     def decode_message(self, raw_message: bytes) -> Any:
         """
         Decode a raw syslog message using the configured decoder.
+        Always decode bytes to str before passing to the decoder.
         """
-        return self.decoder.decode(raw_message)
+        return self.decoder.decode(raw_message.decode("utf-8", errors="replace"))
 
     @abstractmethod
     def handle_decoded_message(

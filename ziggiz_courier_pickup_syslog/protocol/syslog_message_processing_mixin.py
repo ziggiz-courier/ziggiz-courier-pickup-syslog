@@ -10,21 +10,25 @@
 # Mixin for shared syslog message processing logic
 
 # Standard library imports
+
+# Standard library imports
 import json
+
+from typing import Any
 
 
 class SyslogMessageProcessingMixin:
     def process_syslog_messages(
         self,
-        messages,
-        logger,
-        decoder,
-        tracer,
-        span_name,
-        span_attributes_func,
-        enable_model_json_output,
-        peer_info,
-    ):
+        messages: list,
+        logger: Any,
+        decoder: Any,
+        tracer: Any,
+        span_name: str,
+        span_attributes_func: Any,
+        enable_model_json_output: bool,
+        peer_info: Any,
+    ) -> None:
         for msg in messages:
             if msg:
                 message = msg.decode("utf-8", errors="replace")

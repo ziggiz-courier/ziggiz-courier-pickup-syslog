@@ -285,8 +285,8 @@ class TestBaseSyslogBufferedProtocolExtended:
         # Call decode_message
         ext_test_protocol.decode_message(b"test message")
 
-        # Check that decoder.decode was called
-        ext_test_protocol.decoder.decode.assert_called_once_with(b"test message")
+        # Check that decoder.decode was called with a str (not bytes)
+        ext_test_protocol.decoder.decode.assert_called_once_with("test message")
 
     @pytest.mark.unit
     def test_extract_messages_empty_buffer(self, ext_test_protocol):

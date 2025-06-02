@@ -164,7 +164,7 @@ class SyslogTLSProtocol(SyslogTCPProtocol):
                 },
             )
 
-    def handle_decoded_message(self, decoded_message, peer_info):
+    def handle_decoded_message(self, decoded_message: object, peer_info: dict) -> None:
         """
         Handle a decoded syslog message received via TLS.
 

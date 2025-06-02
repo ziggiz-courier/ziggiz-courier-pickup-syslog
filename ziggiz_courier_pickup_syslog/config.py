@@ -229,14 +229,14 @@ class SafeExtraFormatter(logging.Formatter):
     Custom formatter that substitutes missing extra fields with a blank string.
     """
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         # Add any expected extra fields with blank default if missing
         if not hasattr(record, "decoded_model_json"):
             record.decoded_model_json = ""
         return super().format(record)
 
 
-def configure_logging(config: Config) -> None:
+def configure_logging(config: "Config") -> None:
     """
     Configure logging based on the provided configuration.
 

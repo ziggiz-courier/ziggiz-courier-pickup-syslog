@@ -49,16 +49,16 @@ class SyslogTCPProtocol(BaseSyslogBufferedProtocol):
     def logger_name(self) -> str:
         return "ziggiz_courier_pickup_syslog.protocol.tcp"
 
-    def get_peer_info(self):
+    def get_peer_info(self) -> dict:
         if self.peername:
-            return f"{self.peername[0]}:{self.peername[1]}"
-        return "unknown"
+            return {"host": self.peername[0], "port": self.peername[1]}
+        return {"host": "unknown", "port": "unknown"}
 
     @property
     def span_name(self) -> str:
         return "syslog.tcp.message"
 
-    def span_attributes(self, peer_info, msg) -> dict:
+    def span_attributes(self, peer_info: dict, msg: bytes) -> dict:
         host, port = self.peername if self.peername else ("unknown", "unknown")
         return {
             "net.transport": "ip_tcp",
@@ -105,7 +105,7 @@ class SyslogTCPProtocol(BaseSyslogBufferedProtocol):
             },
         )
 
-    def handle_decoded_message(self, decoded_message, peer_info):
+    def handle_decoded_message(self, decoded_message: object, peer_info: dict) -> None:
         """
         Handle a decoded syslog message received via TCP.
         In a real implementation, this would process the message further.

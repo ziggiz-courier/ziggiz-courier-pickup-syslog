@@ -169,7 +169,7 @@ class SyslogUDPProtocol(SyslogMessageProcessingMixin, asyncio.DatagramProtocol):
         # Wrap the UDP datagram as a single-message list of bytes, to match the mixin's interface
         messages = [data]
 
-        def span_attributes(peer_info, msg):
+        def span_attributes(peer_info: dict, msg: bytes) -> dict:
             return {
                 "net.transport": "ip_udp",
                 "net.peer.ip": host,
