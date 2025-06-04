@@ -53,6 +53,22 @@ class SyslogServer:
         self.tls_server: Optional[AbstractServer] = None
         self.tls_context: Optional[ssl.SSLContext] = None
 
+        # Output backend selection
+        self.output_backend = None
+        if self.config.output_backend == "kafka":
+            # Local/package imports
+            from ziggiz_courier_pickup_syslog.kafka_output_backend import (
+                KafkaOutputBackend,
+            )
+
+            self.output_backend = KafkaOutputBackend(
+                bootstrap_servers=self.config.kafka_bootstrap_servers,
+                topic=self.config.kafka_topic,
+                loop=self.loop,
+            )
+        else:
+            self.output_backend = None  # Console/logging is default
+
     async def start(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
         """
         Start the syslog server.

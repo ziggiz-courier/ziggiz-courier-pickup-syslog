@@ -20,6 +20,11 @@ max_message_length: 16384  # Maximum message length in bytes for non-transparent
 # Decoder configuration
 decoder_type: "auto"  # Syslog decoder type: "auto", "rfc3164", "rfc5424", or "base"
 
+# Output backend configuration
+output_backend: "console"  # "console" or "kafka"
+kafka_bootstrap_servers: "localhost:9092"
+kafka_topic: "syslog-messages"
+
 # Logging configuration
 log_level: "INFO"    # Root logger level: DEBUG, INFO, WARNING, ERROR, CRITICAL
 log_format: "%(asctime)s %(levelname)s %(name)s %(message)s"

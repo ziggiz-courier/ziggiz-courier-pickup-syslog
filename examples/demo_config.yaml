@@ -14,6 +14,11 @@ max_message_length: 16384
 decoder_type: "rfc5424"  # Use RFC5424 decoder for demo/test message
 enable_model_json_output: true  # Enable JSON model output for the demo
 
+# Output backend configuration
+output_backend: "console"  # "console" or "kafka"
+kafka_bootstrap_servers: "localhost:9092"
+kafka_topic: "syslog-messages"
+
 # Logging configuration - Set to DEBUG to show decoded messages
 # INFO level also needed to see the JSON model representation
 log_level: "DEBUG"

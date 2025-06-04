@@ -52,6 +52,10 @@ class CertificateRuleConfig(BaseModel):
 
 
 class Config(BaseModel):
+    # Output backend configuration
+    output_backend: str = "console"  # "console" or "kafka"
+    kafka_bootstrap_servers: str = "localhost:9092"
+    kafka_topic: str = "syslog-messages"
     """
     Main configuration class for the Ziggiz Courier Pickup Syslog server.
 

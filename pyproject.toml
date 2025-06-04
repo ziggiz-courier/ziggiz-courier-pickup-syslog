@@ -16,6 +16,7 @@ pydantic = "^2.6.1"
 ziggiz-courier-handler-core = {git = "https://github.com/ziggiz-courier/ziggiz-courier-handler-core.git", rev = "v0.4.0"}
 toml = "^0.10.2"
 opentelemetry-exporter-otlp = "^1.33.1"
+aiokafka = "^0.10.0"
 
 [tool.poetry.scripts]
 ziggiz-syslog = "ziggiz_courier_pickup_syslog.main:main"
