@@ -1,5 +1,5 @@
 # ---- Base image with Python and system deps ----
-FROM python:3.13.3-alpine3.21 AS base
+FROM python:3.13.4-alpine3.22 AS base
 
 # Set environment variables for Python
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,7 +12,8 @@ FROM base AS builder
 WORKDIR /app
 
 # Install Poetry and Git in a single layer
-RUN apk add --no-cache git && \
+RUN apk add --no-cache git gcc musl-dev \
+    librdkafka-dev  zlib-dev  cyrus-sasl-dev  openssl-dev  libffi-dev&& \
     pip install --no-cache-dir "poetry"
 
 # Copy only dependency files for better caching
