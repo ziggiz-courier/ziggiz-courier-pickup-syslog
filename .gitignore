@@ -173,3 +173,21 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 /.vscode
+.kind/terraform/.terraform.lock.hcl
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+terraform.tfvars
+terraform.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terragrunt
+.terragrunt-cache/
+terragrunt-debug.log
